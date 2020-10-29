@@ -8,7 +8,7 @@ float b1, z_123_x_45;
 write("Enter a number");
 
 /* 2: this is a 3-line
- 	comment
+  comment
 */
 n = read();
 abc = n + 1;

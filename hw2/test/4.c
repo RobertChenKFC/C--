@@ -1,0 +1,6 @@
+unrecognized
+
+ token
+ 
+  test /****  start ***/
+~

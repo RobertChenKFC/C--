@@ -363,8 +363,8 @@ static void yy_fatal_error (yyconst char msg[]  );
 	*yy_cp = '\0'; \
 	(yy_c_buf_p) = yy_cp;
 
-#define YY_NUM_RULES 31
-#define YY_END_OF_BUFFER 32
+#define YY_NUM_RULES 32
+#define YY_END_OF_BUFFER 33
 /* This struct is not used in this scanner,
    but its presence is necessary. */
 struct yy_trans_info
@@ -374,9 +374,9 @@ struct yy_trans_info
 	};
 static yyconst flex_int16_t yy_accept[51] =
     {   0,
-        0,    0,   32,   30,    1,    2,   20,   30,   30,   26,
+        0,    0,   33,   31,    1,    2,   20,   31,   31,   26,
        27,   10,    8,   28,    9,   30,   11,    3,   29,   12,
-       21,   13,    7,   24,   25,   22,   30,   23,    1,   17,
+       21,   13,    7,   24,   25,   22,   31,   23,    1,   17,
         0,    5,   18,    4,    0,    4,    3,    0,   14,   16,
        15,    7,   19,    0,    0,    4,    0,    4,    6,    0
     } ;
@@ -490,7 +490,7 @@ char *yytext;
 #include <stdio.h>
 #include "header.h"
 
-int     linenumber;
+int     linenumber = 1;
 symtab  *ptr;
 
 /* You need to define for all tokens in C--, here are some examples */
@@ -545,12 +545,11 @@ symtab  *ptr;
 #define ERROR         110
 
 /* Constants and Comment */
-/* TODO: implemented escape? */
 /* Identifiers */
 /* Symbols and Operators */
 /* Separators */
 /* Errors */
-#line 554 "lex.yy.c"
+#line 553 "lex.yy.c"
 
 #define INITIAL 0
 
@@ -732,10 +731,10 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 108 "lexer.l"
+#line 107 "lexer.l"
 
 
-#line 739 "lex.yy.c"
+#line 738 "lex.yy.c"
 
 	if ( !(yy_init) )
 		{
@@ -820,35 +819,35 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 110 "lexer.l"
+#line 109 "lexer.l"
 {}
 	YY_BREAK
 case 2:
 /* rule 2 can match eol */
 YY_RULE_SETUP
-#line 111 "lexer.l"
+#line 110 "lexer.l"
 linenumber += 1;
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 113 "lexer.l"
+#line 112 "lexer.l"
 return CONST_INT;
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 114 "lexer.l"
+#line 113 "lexer.l"
 return CONST_FLOAT;
 	YY_BREAK
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
-#line 115 "lexer.l"
+#line 114 "lexer.l"
 return CONST_STRING;
 	YY_BREAK
 case 6:
 /* rule 6 can match eol */
 YY_RULE_SETUP
-#line 116 "lexer.l"
+#line 115 "lexer.l"
 {
                         printf("%s\n", yytext);
                         return COMMENT;
@@ -856,19 +855,13 @@ YY_RULE_SETUP
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 121 "lexer.l"
+#line 120 "lexer.l"
 {
-                        // DEBUG
-                        //printf("Identifier %s is found!\n", yytext);
-
                         ptr = lookup(yytext);
                         if (ptr == NULL) {
                           insert(yytext);
                           return IDENTIFIER;
                         } else if (ptr->isReservedWord) {
-                          // DEBUG
-                          //printf("The identifier is a reserved word!\n");
-
                           return ptr->tokenNumber;
                         } else {
                           ptr->counter++;
@@ -878,132 +871,138 @@ YY_RULE_SETUP
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 140 "lexer.l"
+#line 133 "lexer.l"
 return OP_ADD;
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 141 "lexer.l"
+#line 134 "lexer.l"
 return OP_SUB;
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 142 "lexer.l"
+#line 135 "lexer.l"
 return OP_MUL;
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 143 "lexer.l"
+#line 136 "lexer.l"
 return OP_DIV;
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 144 "lexer.l"
+#line 137 "lexer.l"
 return OP_LT;
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 145 "lexer.l"
+#line 138 "lexer.l"
 return OP_GT;
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 146 "lexer.l"
+#line 139 "lexer.l"
 return OP_LE;
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 147 "lexer.l"
+#line 140 "lexer.l"
 return OP_GE;
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 148 "lexer.l"
+#line 141 "lexer.l"
 return OP_EQ;
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 149 "lexer.l"
+#line 142 "lexer.l"
 return OP_NE;
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 150 "lexer.l"
+#line 143 "lexer.l"
 return OP_AND;
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 151 "lexer.l"
+#line 144 "lexer.l"
 return OP_OR;
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 152 "lexer.l"
+#line 145 "lexer.l"
 return OP_NOT;
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 153 "lexer.l"
+#line 146 "lexer.l"
 return OP_ASSIGN;
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 155 "lexer.l"
+#line 148 "lexer.l"
 return MK_LBRACE;
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 156 "lexer.l"
+#line 149 "lexer.l"
 return MK_RBRACE;
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 157 "lexer.l"
+#line 150 "lexer.l"
 return MK_LBRACK;
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 158 "lexer.l"
+#line 151 "lexer.l"
 return MK_RBRACK;
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 159 "lexer.l"
+#line 152 "lexer.l"
 return MK_LPAREN;
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 160 "lexer.l"
+#line 153 "lexer.l"
 return MK_RPAREN;
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 161 "lexer.l"
+#line 154 "lexer.l"
 return MK_COMMA;
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 162 "lexer.l"
+#line 155 "lexer.l"
 return MK_SEMICOL;
-	YY_BREAK
-case YY_STATE_EOF(INITIAL):
-#line 164 "lexer.l"
-return EOF;
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 166 "lexer.l"
-{
-                        printf("[Error] Lexer: unrecognized token %s\n", yytext);
-                        return ERROR;
-                      }
+#line 156 "lexer.l"
+return MK_DOT;
+	YY_BREAK
+case YY_STATE_EOF(INITIAL):
+#line 158 "lexer.l"
+return EOF;
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 171 "lexer.l"
+#line 160 "lexer.l"
+{
+                        fprintf(stderr, "[Error] Lexer: unrecognized token %s "
+                                        "on line %d\n", yytext, linenumber);
+                        return ERROR;
+                      }
+	YY_BREAK
+case 32:
+YY_RULE_SETUP
+#line 166 "lexer.l"
 ECHO;
 	YY_BREAK
-#line 1007 "lex.yy.c"
+#line 1006 "lex.yy.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -1998,11 +1997,13 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 171 "lexer.l"
+#line 166 "lexer.l"
 
 
 
 int main(int argc, char **argv) {
+  setvbuf(stdout, NULL, _IONBF, 0);
+
   insertReservedWord("return", RW_RETURN);
   insertReservedWord("typedef", RW_TYPEDEF);
   insertReservedWord("if", RW_IF);
@@ -2023,6 +2024,7 @@ int main(int argc, char **argv) {
     if (token == ERROR)
       return -1;
   }
+  printf("\nFrequency of identifiers:\n");
   printIdentifierFrequencies();
 }
 

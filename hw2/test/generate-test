@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+
+import random
+import string
+import argparse
+
+
+reserved_words = {'return', 'typedef', 'if',
+                  'else', 'int', 'float', 'for', 'void', 'while'}
+reserved_words_list = list(reserved_words)
+
+
+def generate_reserved_word():
+    return random.choice(reserved_words_list)
+
+
+def generate_integer_literal():
+    length = random.randint(1, 19)
+    return ''.join([f'{random.randint(0, 9)}' for _ in range(length)])
+
+
+def generate_floating_point_literal():
+    literal = ''
+    choice = random.randint(0, 3)
+    if choice == 0:
+        literal = generate_integer_literal()
+    else:
+        if choice % 2 == 1:
+            literal = generate_integer_literal()
+        literal += '.'
+        if choice // 2 == 1:
+            literal += generate_integer_literal()
+    if random.randint(0, 1) == 0:
+        literal += f'e{random.randint(-308, 308)}'
+    return literal
+
+
+characters = [chr(x) for x in list(range(32, ord('"'))) +
+              list(range(ord('"') + 1, 127))] + ['\n', '\t']
+
+
+def generate_string_literal():
+    literal = '"'
+    length = random.randint(0, 100)
+    literal += ''.join([random.choice(characters) for _ in range(length)])
+    literal += '"'
+    return literal
+
+
+letters = [chr(x) for x in list(range(ord('A'), ord('Z') + 1)) +
+           list(range(ord('a'), ord('z') + 1))]
+digits = [str(x) for x in range(9)]
+identifier_characters = letters + digits + ['_']
+symtab = dict()
+
+
+def generate_identifier():
+    if symtab and random.randint(0, 1) == 0:
+        literal = random.choice(list(symtab.keys()))
+        return literal
+    else:
+        while True:
+            length = random.randint(1, 30)
+            literal = random.choice(letters)
+            literal += ''.join([random.choice(identifier_characters)
+                                for _ in range(length - 1)])
+            if literal not in symtab:
+                return literal
+
+
+symbols_and_operators = ['+', '-', '*', '/', '<',
+                         '>', '<=', '>=', '!=', '==', '&&', '||', '!', '=']
+
+
+def generate_symbols_and_operators():
+    return random.choice(symbols_and_operators)
+
+
+separators = ['{', '}', '[', ']', '(', ')', ';', ',', '.']
+
+
+def generate_separators():
+    return random.choice(separators)
+
+
+printable_ascii = [chr(x) for x in range(32, 127)]
+comment_characters = [['*', '/'], printable_ascii]
+
+
+def generate_comment():
+    length = random.randint(0, 100)
+    comment = '/*'
+    prev_char = -1
+    for _ in range(length):
+        while True:
+            char = random.choice(random.choice(comment_characters))
+            if prev_char != '*' or char != '/':
+                break
+        comment += char
+        prev_char = char
+    comment += '*/'
+    return comment
+
+
+whitespace_characters = [' ', '\n', '\t']
+
+
+def generate_whitespace():
+    return random.choice(whitespace_characters)
+
+
+generate_token_functions = [generate_reserved_word, generate_integer_literal,
+                            generate_floating_point_literal, generate_string_literal,
+                            generate_identifier, generate_symbols_and_operators,
+                            generate_separators, generate_comment, generate_whitespace]
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='generate test data')
+    parser.add_argument('input_file', metavar='input-file',
+                        help='generated test data input file')
+    parser.add_argument('output_file', metavar='output-file',
+                        help='generated test data output file')
+    parser.add_argument('-n', '--number-of-tokens', dest='num_tok',
+                        default='100000', help='number of tokens to generate')
+
+    args = parser.parse_args()
+    with open(args.input_file, 'w') as input_file:
+        with open(args.output_file, 'w') as output_file:
+            last_func = -1
+            last_token = 'a'
+            for _ in range(int(args.num_tok)):
+                invalid = True
+                while invalid:
+                    invalid = False
+                    func = random.choice(generate_token_functions)
+                    token = func()
+                    if ((last_token == '/' and token == '*') or
+                        (last_token[-1] == '.' and
+                         (token[0].isdigit() or
+                          token[0] == 'E' or
+                          token[0] == 'e')) or
+                        ((last_func == generate_identifier or
+                          last_func == generate_reserved_word or
+                          last_token[-1].isdigit()) and
+                         (func == generate_identifier or
+                          func == generate_reserved_word or
+                          token[0].isdigit()))):
+                        invalid = True
+                if func == generate_identifier:
+                    if token in symtab:
+                        symtab[token] += 1
+                    else:
+                        symtab[token] = 1
+                elif func == generate_comment:
+                    output_file.write(f'{token}\n')
+                input_file.write(token)
+                last_func = func
+                last_token = token
+
+            output_file.write('\nFrequency of identifiers:\n')
+            for identifier, count in sorted(symtab.items()):
+                output_file.write('%-32s %d\n' % (identifier, count))

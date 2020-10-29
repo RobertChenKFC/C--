@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "header.h"
 
-int     linenumber;
+int     linenumber = 1;
 symtab  *ptr;
 
 /* You need to define for all tokens in C--, here are some examples */
@@ -68,7 +68,6 @@ newline               "\n"
 /* Constants and Comment */
 Int_constant          {digit}+
 Float_constant        ({digit}+\.{digit}*|{digit}*\.{digit}+|{digit}+)([Ee]-?{digit})?
-/* TODO: implemented escape? */
 String_constant       \"[^"]*\"
 comment               \/\*([^\*]|\*+[^\/\*])*(\*+)?\*\/
 
@@ -119,17 +118,11 @@ error                 .
                       }
 
 {ID}                  {
-                        // DEBUG
-                        //printf("Identifier %s is found!\n", yytext);
-
                         ptr = lookup(yytext);
                         if (ptr == NULL) {
                           insert(yytext);
                           return IDENTIFIER;
                         } else if (ptr->isReservedWord) {
-                          // DEBUG
-                          //printf("The identifier is a reserved word!\n");
-
                           return ptr->tokenNumber;
                         } else {
                           ptr->counter++;
@@ -160,17 +153,21 @@ error                 .
 {DL_rparen}           return MK_RPAREN;
 {DL_comma}            return MK_COMMA;
 {DL_semicol}          return MK_SEMICOL;
+{DL_dot}              return MK_DOT;
 
 <<EOF>>               return EOF;
 
 {error}               {
-                        printf("[Error] Lexer: unrecognized token %s\n", yytext);
+                        fprintf(stderr, "[Error] Lexer: unrecognized token %s "
+                                        "on line %d\n", yytext, linenumber);
                         return ERROR;
                       }
 
 %%
 
 int main(int argc, char **argv) {
+  setvbuf(stdout, NULL, _IONBF, 0);
+
   insertReservedWord("return", RW_RETURN);
   insertReservedWord("typedef", RW_TYPEDEF);
   insertReservedWord("if", RW_IF);
@@ -191,6 +188,7 @@ int main(int argc, char **argv) {
     if (token == ERROR)
       return -1;
   }
+  printf("\nFrequency of identifiers:\n");
   printIdentifierFrequencies();
 }
 

@@ -1,0 +1,17 @@
+/* 1: this is * just a / sample */
+/* 2: this is a 3-line
+  comment
+*/
+/* 3: this is /* the end ***/
+
+Frequency of identifiers:
+a1                               1
+abc                              4
+b1                               1
+def                              3
+main                             1
+main_1                           1
+n                                3
+read                             1
+write                            2
+z_123_x_45                       1
