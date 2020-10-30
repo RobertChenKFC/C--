@@ -1,0 +1,72 @@
+RW_INT
+IDENTIFIER
+MK_LPAREN
+MK_RPAREN
+MK_LBRACE
+COMMENT
+/* 1: this is * just a / sample */
+RW_INT
+IDENTIFIER
+MK_SEMICOL
+RW_INT
+IDENTIFIER
+MK_COMMA
+IDENTIFIER
+MK_COMMA
+IDENTIFIER
+MK_SEMICOL
+RW_INT
+IDENTIFIER
+MK_SEMICOL
+RW_FLOAT
+IDENTIFIER
+MK_COMMA
+IDENTIFIER
+MK_SEMICOL
+IDENTIFIER
+MK_LPAREN
+CONST_STRING
+MK_RPAREN
+MK_SEMICOL
+COMMENT
+/* 2: this is a 3-line
+  comment
+*/
+IDENTIFIER
+OP_ASSIGN
+IDENTIFIER
+MK_LPAREN
+MK_RPAREN
+MK_SEMICOL
+IDENTIFIER
+OP_ASSIGN
+IDENTIFIER
+OP_ADD
+CONST_INT
+MK_SEMICOL
+IDENTIFIER
+OP_ASSIGN
+IDENTIFIER
+OP_MUL
+IDENTIFIER
+MK_SEMICOL
+IDENTIFIER
+MK_LPAREN
+IDENTIFIER
+MK_RPAREN
+MK_SEMICOL
+COMMENT
+/* 3: this is /* the end ***/
+MK_RBRACE
+
+Frequency of identifiers:
+a1                               1
+abc                              4
+b1                               1
+def                              3
+main                             1
+main_1                           1
+n                                3
+read                             1
+write                            2
+z_123_x_45                       1

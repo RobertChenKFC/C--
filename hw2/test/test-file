@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+
+def find_indices():
+    indices = []
+    i = 1
+    while True:
+        f = f'{i}.c'
+        if not os.path.exists(f):
+            break
+        indices.append(i)
+        i += 1
+    return indices
+
+
+options = ''
+if len(sys.argv) == 1:
+    indices = find_indices()
+else:
+    indices = []
+    for i in sys.argv[1:]:
+        if i == '--dump-tokens':
+            options = i
+        else:
+            indices.append(i)
+    if not indices:
+        indices = find_indices()
+
+for i in indices:
+    f = f'{i}.c'
+    print(f'testing {f}')
+    if os.system(f'./scanner {options} {f} 2>&1 | diff {i}.out -') != 0:
+        print(f'failed test on {f}')

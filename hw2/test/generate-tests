@@ -5,8 +5,10 @@ import string
 import argparse
 
 
-reserved_words = {'return', 'typedef', 'if',
-                  'else', 'int', 'float', 'for', 'void', 'while'}
+reserved_words = {('return', 'RW_RETURN'), ('typedef', 'RW_TYPEDEF'),
+                  ('if', 'RW_IF'), ('else', 'RW_ELSE'), ('int', 'RW_INT'),
+                  ('float', 'RW_FLOAT'), ('for', 'RW_FOR'), ('void', 'RW_VOID'),
+                  ('while', 'RW_WHILE')}
 reserved_words_list = list(reserved_words)
 
 
@@ -16,23 +18,24 @@ def generate_reserved_word():
 
 def generate_integer_literal():
     length = random.randint(1, 19)
-    return ''.join([f'{random.randint(0, 9)}' for _ in range(length)])
+    return ''.join([f'{random.randint(0, 9)}' for _ in range(length)]), 'CONST_INT'
 
 
 def generate_floating_point_literal():
     literal = ''
     choice = random.randint(0, 3)
     if choice == 0:
-        literal = generate_integer_literal()
+        return generate_integer_literal()
     else:
         if choice % 2 == 1:
-            literal = generate_integer_literal()
+            literal, _ = generate_integer_literal()
         literal += '.'
         if choice // 2 == 1:
-            literal += generate_integer_literal()
+            digit_sequence, _ = generate_integer_literal()
+            literal += digit_sequence
     if random.randint(0, 1) == 0:
         literal += f'e{random.randint(-308, 308)}'
-    return literal
+    return literal, 'CONST_FLOAT'
 
 
 characters = [chr(x) for x in list(range(32, ord('"'))) +
@@ -44,7 +47,7 @@ def generate_string_literal():
     length = random.randint(0, 100)
     literal += ''.join([random.choice(characters) for _ in range(length)])
     literal += '"'
-    return literal
+    return literal, 'CONST_STRING'
 
 
 letters = [chr(x) for x in list(range(ord('A'), ord('Z') + 1)) +
@@ -57,26 +60,31 @@ symtab = dict()
 def generate_identifier():
     if symtab and random.randint(0, 1) == 0:
         literal = random.choice(list(symtab.keys()))
-        return literal
+        return literal, 'IDENTIFIER'
     else:
         while True:
             length = random.randint(1, 30)
             literal = random.choice(letters)
             literal += ''.join([random.choice(identifier_characters)
                                 for _ in range(length - 1)])
-            if literal not in symtab:
-                return literal
+            if literal not in reserved_words and literal not in symtab:
+                return literal, 'IDENTIFIER'
 
 
-symbols_and_operators = ['+', '-', '*', '/', '<',
-                         '>', '<=', '>=', '!=', '==', '&&', '||', '!', '=']
+symbols_and_operators = [('+', 'OP_ADD'), ('-', 'OP_SUB'), ('*', 'OP_MUL'),
+                         ('/', 'OP_DIV'), ('<', 'OP_LT'), ('>', 'OP_GT'),
+                         ('<=', 'OP_LE'), ('>=', 'OP_GE'), ('!=', 'OP_NE'),
+                         ('==', 'OP_EQ'), ('&&', 'OP_AND'), ('||', 'OP_OR'),
+                         ('!', 'OP_NOT'), ('=', 'OP_ASSIGN')]
 
 
 def generate_symbols_and_operators():
     return random.choice(symbols_and_operators)
 
 
-separators = ['{', '}', '[', ']', '(', ')', ';', ',', '.']
+separators = [('{', 'MK_LBRACE'), ('}', 'MK_RBRACE'), ('[', 'MK_LBRACK'),
+              (']', 'MK_RBRACK'), ('(', 'MK_LPAREN'), (')', 'MK_RPAREN'),
+              (';', 'MK_SEMICOL'), (',', 'MK_COMMA'), ('.', 'MK_DOT')]
 
 
 def generate_separators():
@@ -99,7 +107,7 @@ def generate_comment():
         comment += char
         prev_char = char
     comment += '*/'
-    return comment
+    return comment, 'COMMENT'
 
 
 whitespace_characters = [' ', '\n', '\t']
@@ -109,10 +117,35 @@ def generate_whitespace():
     return random.choice(whitespace_characters)
 
 
+conflict_token_file = open('conflict-tokens', 'w')
+
+
+def conflict(last_token, last_func, token, func):
+    return ((last_token == '/' and token == '*') or
+            (last_token[-1] == '.' and
+             (token[0].isdigit() or
+              token[0] == 'E' or
+              token[0] == 'e')) or
+            (last_token[-1].isdigit() and
+             (token[0].isdigit() or
+              token[0] == '.')) or
+            ((last_token[-1] == '<' or
+              last_token[-1] == '>' or
+              last_token[-1] == '!' or
+              last_token[-1] == '=') and
+             token[0] == '=') or
+            ((last_func == generate_identifier or
+              last_func == generate_reserved_word or
+              last_token[-1].isdigit()) and
+             (func == generate_identifier or
+              func == generate_reserved_word or
+              token[0].isdigit())))
+
+
 generate_token_functions = [generate_reserved_word, generate_integer_literal,
                             generate_floating_point_literal, generate_string_literal,
                             generate_identifier, generate_symbols_and_operators,
-                            generate_separators, generate_comment, generate_whitespace]
+                            generate_separators, generate_comment]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='generate test data')
@@ -122,30 +155,24 @@ if __name__ == '__main__':
                         help='generated test data output file')
     parser.add_argument('-n', '--number-of-tokens', dest='num_tok',
                         default='100000', help='number of tokens to generate')
+    parser.add_argument('--dump-tokens', dest='dump_tok', action='store_true',
+                        default=False)
 
     args = parser.parse_args()
     with open(args.input_file, 'w') as input_file:
         with open(args.output_file, 'w') as output_file:
             last_func = -1
-            last_token = 'a'
+            last_token = '$'
             for _ in range(int(args.num_tok)):
                 invalid = True
                 while invalid:
                     invalid = False
                     func = random.choice(generate_token_functions)
-                    token = func()
-                    if ((last_token == '/' and token == '*') or
-                        (last_token[-1] == '.' and
-                         (token[0].isdigit() or
-                          token[0] == 'E' or
-                          token[0] == 'e')) or
-                        ((last_func == generate_identifier or
-                          last_func == generate_reserved_word or
-                          last_token[-1].isdigit()) and
-                         (func == generate_identifier or
-                          func == generate_reserved_word or
-                          token[0].isdigit()))):
+                    token, tokenType = func()
+                    if conflict(last_token, last_func, token, func):
                         invalid = True
+                if args.dump_tok:
+                    output_file.write(f'{tokenType}\n')
                 if func == generate_identifier:
                     if token in symtab:
                         symtab[token] += 1

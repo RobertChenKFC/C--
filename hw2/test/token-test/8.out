@@ -1,0 +1,6 @@
+IDENTIFIER
+IDENTIFIER
+IDENTIFIER
+COMMENT
+/****  start ***/
+[Error] Lexer: invalid identifier this_identifier_is_too_loooooooooooooooooooooooooooooooooooooooooooooong of length > 32 on line 7

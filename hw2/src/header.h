@@ -3,8 +3,10 @@
 
 #include <stdbool.h>
 
+#define IDENTIFIER_MAX_LEN 32
+
 typedef struct symtab {
-	char lexeme[33];
+	char lexeme[IDENTIFIER_MAX_LEN + 1];
 	struct symtab *front;
 	struct symtab *back;
 	int line;
