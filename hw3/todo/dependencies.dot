@@ -1,0 +1,139 @@
+digraph G {
+  node [style="filled"]
+
+  00 [label="program"]
+  01 -> 00
+
+  01 [label="global_decl_list"]
+  02 -> 01
+
+  02 [label="global_decl"]
+  03 -> 02
+  09 -> 02
+
+  03 [label="function_decl", fillcolor="lightyellow"]
+  04 -> 03
+  08 -> 03
+  13 -> 03
+
+  04 [label="param_list", fillcolor="lightyellow"]
+  05 -> 04
+
+  05 [label="param", fillcolor="lightyellow"]
+  06 -> 05
+  13 -> 05
+
+  06 [label="dim_fn"]
+  07 -> 06
+  33 -> 06
+
+  07 [label="expr_null", fillcolor="lightyellow"]
+  33 -> 07
+
+  08 [label="block", fillcolor="lightyellow"]
+  09 -> 08
+  21 -> 08
+
+  09 [label="decl_list", fillcolor="lightyellow"]
+  10 -> 09
+
+  10 [label="decl"]
+  11 -> 10
+  12 -> 10
+
+  11 [label="type_decl", fillcolor="lightyellow"]
+  13 -> 11
+  14 -> 11
+
+  12 [label="var_decl", fillcolor="lightyellow"]
+  13 -> 12
+  14 -> 12
+  19 -> 12
+
+  13 [label="type"]
+
+  14 [label="id_list", fillcolor="lightyellow"]
+  15 -> 14
+
+  15 [label="dim_decl", fillcolor="lightyellow"]
+  16 -> 15
+
+  16 [label="cexpr", fillcolor="lightyellow"]
+  17 -> 16
+
+  17 [label="mcexpr", fillcolor="lightyellow"]
+  18 -> 17
+
+  18 [label="cfactor", fillcolor="lightyellow"]
+  15 -> 18
+
+  19 [label="init_id_list", fillcolor="lightyellow"]
+  20 -> 19
+
+  20 [label="init_id", fillcolor="lightyellow"]
+  15 -> 20
+  27 -> 20
+
+  21 [label="stmt_list", fillcolor="lightyellow"]
+  22 -> 21
+
+  22 [label="stmt", fillcolor="lightyellow"]
+  08 -> 22
+  23 -> 22
+  27 -> 22
+  31 -> 22
+  38 -> 22
+
+  23 [label="assign_expr_list", fillcolor="lightyellow"]
+  24 -> 23
+
+  24 [label="nonempty_assign_expr_list", fillcolor="lightyellow"]
+  26 -> 24
+
+  25 [label="test", fillcolor="lightyellow"]
+  26 -> 25
+
+  26 [label="assign_expr", fillcolor="lightyellow"]
+  27 -> 26
+
+  27 [label="relop_expr"]
+  28 -> 27
+
+  28 [label="relop_term", fillcolor="lightyellow"]
+  29 -> 28
+
+  29 [label="relop_factor", fillcolor="lightyellow"]
+  30 -> 29
+  33 -> 29
+
+  30 [label="relop_op", fillcolor="lightyellow"]
+
+  31 [label="relop_expr_list", fillcolor="lightyellow"]
+  32 -> 31
+
+  32 [label="nonempty_relop_expr_list", fillcolor="lightyellow"]
+  27 -> 32
+
+  33 [label="expr", fillcolor="lightyellow"]
+  34 -> 33
+  35 -> 33
+
+  34 [label="add_op"]
+
+  35 [label="term", fillcolor="lightyellow"]
+  36 -> 35
+  37 -> 35
+
+  36 [label="mul_op", fillcolor="lightyellow"]
+
+  37 [label="factor", fillcolor="lightyellow"]
+  27 -> 37
+  31 -> 37
+  38 -> 37
+
+  38 [label="var_ref", fillcolor="lightyellow"]
+  39 -> 38
+
+  39 [label="dim_list", fillcolor="lightyellow"]
+  33 -> 39
+}

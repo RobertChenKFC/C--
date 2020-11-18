@@ -1,0 +1,189 @@
+(00) program: (01)
+  /* OK */ global_decl_list
+  /* OK */ LAMBDA
+
+(01) global_decl_list: (02)
+  /* OK */ global_decl_list global_decl
+  /* OK */ global_decl
+
+(02) global_decl: (03) (09)
+  /* OK */ decl_list function_decl
+  /* OK */ function_decl
+
+(03) function_decl: (04) (08) (13)
+  /* OK */ type ID ( param_list ) { block }
+  VOID ID ( param_list ) { block }
+  /* OK */ type ID ( ) { block }
+  VOID ID ( ) { block }
+
+(04) param_list: (05)
+  /* OK */ param_list , param
+  param
+
+(05) param: (06) (13)
+  /* OK */ type ID
+  type ID dim_fn
+
+(06) dim_fn: (07) (33) /* array dimensions in functions can skip first row dimension */
+  /* OK */ [ expr_null ]
+  /* OK */ dim_fn [ expr ]
+
+(07) expr_null: (33) /* expression or lambda */
+  expr
+  /* OK */ LAMBDA
+
+(08) block: (09) (21)
+  decl_list stmt_list
+  /* OK */ stmt_list
+  /* OK */ decl_list
+  LAMBDA
+
+(09) decl_list: (10)
+  decl_list decl
+  decl
+
+(10) decl: (11) (12)
+  /* OK */ type_decl
+  /* OK */ var_decl
+
+(11) type_decl: (13) (14)
+  TYPEDEF type id_list ;
+  TYPEDEF VOID id_list ;
+
+(12) var_decl (13) (14) (19):
+  type init_id_list ;
+  ID id_list ;
+
+(13) type:
+  /* OK */ INT
+  /* OK */ FLOAT
+
+(14) id_list: (15)
+  /* OK */ ID
+  id_list , ID
+  id_list , ID dim_decl
+  ID dim_decl
+
+(15) dim_decl: (16)
+  [ cexpr ] /* Try to define recursive production rule? */
+
+(16) cexpr: (17) /* constant expression */
+  /* OK */ cexpr + mcexpr
+  cexpr - mcexpr
+  mcexpr
+
+(17) mcexpr: (18)
+  mcexpr * cfactor
+  mcexpr / cfactor
+  cfactor
+
+(18) cfactor: (15)
+  CONST
+  ( cexpr )
+
+(19) init_id_list: (20)
+  init_id
+  init_id_list , init_id
+
+(20) init_id: (15) (27) (/* identifer with or without initialization */
+  /* OK */ ID
+  ID dim_decl
+  ID = relop_expr
+
+(21) stmt_list (22):
+  stmt_list stmt
+  stmt
+
+(22) stmt: (08) (23) (27) (31) (38)
+  { block }
+  /* while statement */
+  for ( assign_expr_list ; relop_expr_list ; assign_expr_list ) stmt
+  var_ref = relop_expr ;
+  /* if statment */
+  /* if then else statement */
+  /* function call statement */
+  ;
+  return ;
+  return relop_expr ;
+
+(23) assign_expr_list: (24)
+  nonempty_assign_expr_list
+  /* OK */ LAMBDA
+
+(24) nonempty_assign_expr_list: (26)
+  nonempty_assign_expr_list , assign_expr
+  assign_expr
+
+(25) test: (26)
+  assign_expr
+
+(26) assign_expr: (27)
+  ID = relop_expr
+  relop_expr
+
+(27) relop_expr: (28) /* relation operation expression */
+  /* OK */ relop_term
+  /* OK */ relop_expr || relop_term
+
+(28) relop_term: (29)
+  relop_factor
+  relop_term && relop_factor
+
+(29) relop_factor: (30) (33)
+  expr
+  expr relop_op expr
+
+(30) relop_op:
+  ==
+  >=
+  <=
+  !=
+  >
+  <
+
+(31) relop_expr_list: (32)
+  nonempty_relop_expr_list
+  /* OK */ LAMBDA
+
+(32) nonempty_relop_expr_list: (27)
+  nonempty_relop_expr_list , relop_expr
+  relop_expr
+
+(33) expr: (34) (35)
+  expr add_op term
+  term
+
+(34) add_op:
+  /* OK */ +
+  /* OK */ -
+
+(35) term: (36) (37)
+  term mul_op factor
+  factor
+
+(36) mul_op:
+  *
+  /
+
+(37) factor: (27) (31) (38)
+  ( relop_expr )
+  /* negative expression */
+  ! ( relop_expr )
+  /* OK */ CONST
+  /* negative constant */
+  ! CONST
+  ID ( relop_expr_list )
+  /* negative function call */
+  ! ID ( relop_expr_list )
+  var_ref
+  /* negative variable reference */
+  ! var_ref
+
+(38) var_ref: (39)
+  ID
+  ID dim_list
+
+(39) dim_list: (33)
+  dim_list [ expr ]
+  [ expr ]
+
