@@ -63,8 +63,8 @@ Grammar
    30     | var_decl
 
    31 type_decl: TYPEDEF type id_list MK_SEMICOLON
-   32          | TYPEDEF VOID id_list MK_SEMICOLON
-   33          | TYPEDEF ID id_list MK_SEMICOLON
+   32          | TYPEDEF ID id_list MK_SEMICOLON
+   33          | TYPEDEF VOID id_list MK_SEMICOLON
 
    34 var_decl: type init_id_list MK_SEMICOLON
    35         | ID init_id_list MK_SEMICOLON
@@ -102,11 +102,11 @@ Grammar
    58          | stmt
 
    59 stmt: MK_LBRACE block MK_RBRACE
-   60     | WHILE MK_LPAREN relop_expr MK_RPAREN stmt
+   60     | WHILE MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt
    61     | FOR MK_LPAREN assign_expr_list MK_SEMICOLON relop_expr_list MK_SEMICOLON assign_expr_list MK_RPAREN stmt
    62     | var_ref OP_ASSIGN relop_expr MK_SEMICOLON
-   63     | IF MK_LPAREN relop_expr MK_RPAREN stmt
-   64     | IF MK_LPAREN relop_expr MK_RPAREN stmt ELSE stmt
+   63     | IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt
+   64     | IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt ELSE stmt
    65     | ID MK_LPAREN relop_expr_list MK_RPAREN MK_SEMICOLON
    66     | MK_SEMICOLON
    67     | RETURN MK_SEMICOLON
@@ -179,10 +179,10 @@ Terminals, with rules where they appear
 
 $end (0) 0
 error (256)
-ID (258) 7 8 9 10 11 12 15 16 17 18 33 35 38 39 40 41 54 55 56 65 73
+ID (258) 7 8 9 10 11 12 15 16 17 18 32 35 38 39 40 41 54 55 56 65 73
     105 106 107 111 112
 CONST (259) 50 102 103 104
-VOID (260) 9 12 32
+VOID (260) 9 12 33
 INT (261) 36
 FLOAT (262) 37
 IF (263) 63 64
@@ -277,8 +277,7 @@ nonempty_assign_expr_list (63)
 assign_expr (64)
     on left: 73 74, on right: 71 72
 relop_expr (65)
-    on left: 75 76, on right: 56 60 62 63 64 68 73 74 76 89 90 99 100
-    101
+    on left: 75 76, on right: 56 62 68 73 74 76 89 90 99 100 101
 relop_term (66)
     on left: 77 78, on right: 75 76 78
 relop_factor (67)
@@ -288,7 +287,7 @@ rel_op (68)
 relop_expr_list (69)
     on left: 87 88, on right: 61 65 105 106 107
 nonempty_relop_expr_list (70)
-    on left: 89 90, on right: 87 89
+    on left: 89 90, on right: 60 63 64 87 89
 expr (71)
     on left: 91 92, on right: 20 21 79 80 91 113 114
 add_op (72)
@@ -366,8 +365,8 @@ state 4
 state 5
 
    31 type_decl: TYPEDEF . type id_list MK_SEMICOLON
-   32          | TYPEDEF . VOID id_list MK_SEMICOLON
-   33          | TYPEDEF . ID id_list MK_SEMICOLON
+   32          | TYPEDEF . ID id_list MK_SEMICOLON
+   33          | TYPEDEF . VOID id_list MK_SEMICOLON
 
     ID     shift, and go to state 19
     VOID   shift, and go to state 20
@@ -514,7 +513,7 @@ state 18
 
 state 19
 
-   33 type_decl: TYPEDEF ID . id_list MK_SEMICOLON
+   32 type_decl: TYPEDEF ID . id_list MK_SEMICOLON
 
     ID  shift, and go to state 35
 
@@ -523,7 +522,7 @@ state 19
 
 state 20
 
-   32 type_decl: TYPEDEF VOID . id_list MK_SEMICOLON
+   33 type_decl: TYPEDEF VOID . id_list MK_SEMICOLON
 
     ID  shift, and go to state 35
 
@@ -694,7 +693,7 @@ state 35
 
 state 36
 
-   33 type_decl: TYPEDEF ID id_list . MK_SEMICOLON
+   32 type_decl: TYPEDEF ID id_list . MK_SEMICOLON
    39 id_list: id_list . MK_COMMA ID
    40        | id_list . MK_COMMA ID dim_decl
 
@@ -704,7 +703,7 @@ state 36
 
 state 37
 
-   32 type_decl: TYPEDEF VOID id_list . MK_SEMICOLON
+   33 type_decl: TYPEDEF VOID id_list . MK_SEMICOLON
    39 id_list: id_list . MK_COMMA ID
    40        | id_list . MK_COMMA ID dim_decl
 
@@ -1044,16 +1043,16 @@ state 69
 
 state 70
 
-   33 type_decl: TYPEDEF ID id_list MK_SEMICOLON .
+   32 type_decl: TYPEDEF ID id_list MK_SEMICOLON .
 
-    $default  reduce using rule 33 (type_decl)
+    $default  reduce using rule 32 (type_decl)
 
 
 state 71
 
-   32 type_decl: TYPEDEF VOID id_list MK_SEMICOLON .
+   33 type_decl: TYPEDEF VOID id_list MK_SEMICOLON .
 
-    $default  reduce using rule 32 (type_decl)
+    $default  reduce using rule 33 (type_decl)
 
 
 state 72
@@ -1875,15 +1874,15 @@ state 141
 
 state 142
 
-   63 stmt: IF . MK_LPAREN relop_expr MK_RPAREN stmt
-   64     | IF . MK_LPAREN relop_expr MK_RPAREN stmt ELSE stmt
+   63 stmt: IF . MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt
+   64     | IF . MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt ELSE stmt
 
     MK_LPAREN  shift, and go to state 175
 
 
 state 143
 
-   60 stmt: WHILE . MK_LPAREN relop_expr MK_RPAREN stmt
+   60 stmt: WHILE . MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt
 
     MK_LPAREN  shift, and go to state 176
 
@@ -2295,8 +2294,8 @@ state 174
 
 state 175
 
-   63 stmt: IF MK_LPAREN . relop_expr MK_RPAREN stmt
-   64     | IF MK_LPAREN . relop_expr MK_RPAREN stmt ELSE stmt
+   63 stmt: IF MK_LPAREN . nonempty_relop_expr_list MK_RPAREN stmt
+   64     | IF MK_LPAREN . nonempty_relop_expr_list MK_RPAREN stmt ELSE stmt
 
     ID         shift, and go to state 41
     CONST      shift, and go to state 42
@@ -2304,18 +2303,19 @@ state 175
     OP_MINUS   shift, and go to state 44
     MK_LPAREN  shift, and go to state 45
 
-    relop_expr    go to state 198
-    relop_term    go to state 47
-    relop_factor  go to state 48
-    expr          go to state 49
-    term          go to state 50
-    factor        go to state 51
-    var_ref       go to state 52
+    relop_expr                go to state 120
+    relop_term                go to state 47
+    relop_factor              go to state 48
+    nonempty_relop_expr_list  go to state 198
+    expr                      go to state 49
+    term                      go to state 50
+    factor                    go to state 51
+    var_ref                   go to state 52
 
 
 state 176
 
-   60 stmt: WHILE MK_LPAREN . relop_expr MK_RPAREN stmt
+   60 stmt: WHILE MK_LPAREN . nonempty_relop_expr_list MK_RPAREN stmt
 
     ID         shift, and go to state 41
     CONST      shift, and go to state 42
@@ -2323,13 +2323,14 @@ state 176
     OP_MINUS   shift, and go to state 44
     MK_LPAREN  shift, and go to state 45
 
-    relop_expr    go to state 199
-    relop_term    go to state 47
-    relop_factor  go to state 48
-    expr          go to state 49
-    term          go to state 50
-    factor        go to state 51
-    var_ref       go to state 52
+    relop_expr                go to state 120
+    relop_term                go to state 47
+    relop_factor              go to state 48
+    nonempty_relop_expr_list  go to state 199
+    expr                      go to state 49
+    term                      go to state 50
+    factor                    go to state 51
+    var_ref                   go to state 52
 
 
 state 177
@@ -2539,21 +2540,21 @@ state 197
 
 state 198
 
-   63 stmt: IF MK_LPAREN relop_expr . MK_RPAREN stmt
-   64     | IF MK_LPAREN relop_expr . MK_RPAREN stmt ELSE stmt
-   76 relop_expr: relop_expr . OP_OR relop_term
+   63 stmt: IF MK_LPAREN nonempty_relop_expr_list . MK_RPAREN stmt
+   64     | IF MK_LPAREN nonempty_relop_expr_list . MK_RPAREN stmt ELSE stmt
+   89 nonempty_relop_expr_list: nonempty_relop_expr_list . MK_COMMA relop_expr
 
-    OP_OR      shift, and go to state 87
     MK_RPAREN  shift, and go to state 213
+    MK_COMMA   shift, and go to state 165
 
 
 state 199
 
-   60 stmt: WHILE MK_LPAREN relop_expr . MK_RPAREN stmt
-   76 relop_expr: relop_expr . OP_OR relop_term
+   60 stmt: WHILE MK_LPAREN nonempty_relop_expr_list . MK_RPAREN stmt
+   89 nonempty_relop_expr_list: nonempty_relop_expr_list . MK_COMMA relop_expr
 
-    OP_OR      shift, and go to state 87
     MK_RPAREN  shift, and go to state 214
+    MK_COMMA   shift, and go to state 165
 
 
 state 200
@@ -2666,8 +2667,8 @@ state 212
 
 state 213
 
-   63 stmt: IF MK_LPAREN relop_expr MK_RPAREN . stmt
-   64     | IF MK_LPAREN relop_expr MK_RPAREN . stmt ELSE stmt
+   63 stmt: IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN . stmt
+   64     | IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN . stmt ELSE stmt
 
     ID            shift, and go to state 183
     IF            shift, and go to state 142
@@ -2683,7 +2684,7 @@ state 213
 
 state 214
 
-   60 stmt: WHILE MK_LPAREN relop_expr MK_RPAREN . stmt
+   60 stmt: WHILE MK_LPAREN nonempty_relop_expr_list MK_RPAREN . stmt
 
     ID            shift, and go to state 183
     IF            shift, and go to state 142
@@ -2775,8 +2776,8 @@ state 219
 
 state 220
 
-   63 stmt: IF MK_LPAREN relop_expr MK_RPAREN stmt .
-   64     | IF MK_LPAREN relop_expr MK_RPAREN stmt . ELSE stmt
+   63 stmt: IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt .
+   64     | IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt . ELSE stmt
 
     ELSE  shift, and go to state 225
 
@@ -2786,7 +2787,7 @@ state 220
 
 state 221
 
-   60 stmt: WHILE MK_LPAREN relop_expr MK_RPAREN stmt .
+   60 stmt: WHILE MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt .
 
     $default  reduce using rule 60 (stmt)
 
@@ -2817,7 +2818,7 @@ state 224
 
 state 225
 
-   64 stmt: IF MK_LPAREN relop_expr MK_RPAREN stmt ELSE . stmt
+   64 stmt: IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt ELSE . stmt
 
     ID            shift, and go to state 183
     IF            shift, and go to state 142
@@ -2857,7 +2858,7 @@ state 226
 
 state 227
 
-   64 stmt: IF MK_LPAREN relop_expr MK_RPAREN stmt ELSE stmt .
+   64 stmt: IF MK_LPAREN nonempty_relop_expr_list MK_RPAREN stmt ELSE stmt .
 
     $default  reduce using rule 64 (stmt)
 
