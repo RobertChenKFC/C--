@@ -1,0 +1,122 @@
+Notes:
+  - added getTypeString (semanticAnalysis.h) to get the string of a type
+    represented by its TypeDescriptor
+  - added isGlobalScope (symbolTable.h) to check if the current scope is
+    global
+  - added the purpose of processVariableLValue
+  - the current implementation stores the first dimension of array type
+    function parameters as NUL_DIM (-1) if the first dimension isn't
+    specified
+  - modified getBiggerType to output error type if one of the operands is
+    neither int nor float
+
+Functions:
+
+1. void processProgramNode(AST_NODE *programNode);
+   Process children, containing a list of [VARIABLE_DECL_LIST_NODE |
+   DECLARATION_NODE | FUNCTION_DECL].
+
+2. void processDeclarationNode(AST_NODE* declarationNode);
+   Process declarationNode according to its type [VARIABLE_DECL | TYPE_DECL |
+   FUNCTION_DECL | FUNCTION_PARAMETER_DECL].
+
+3. void declareIdList(AST_NODE* typeNode,
+                      SymbolAttributeKind isVariableOrTypeAttribute,
+                      int ignoreArrayFirstDimSize);
+   Process a list of IDENTIFIER_NODE and populate the symbol table.
+
+4. void declareFunction(AST_NODE* returnTypeNode);
+   Process a list containing IDENTIFIER_NODE (return type), IDENTIFIER_NODE
+   (function name), PARAM_LIST_NODE (parameter list), BLOCK_NODE (function body)
+   and populate the symbol table.
+
+5. void processDeclDimList(AST_NODE* variableDeclDimList, AST_NODE* typeNode,
+                           TypeDescriptor* typeDescriptor,
+                           int ignoreFirstDimSize);
+   Process a list containing a single IDENTIFIER_NODE (variable name) and
+   several EXPR_NODE, and populate the symbol table.
+
+6. void processTypeNode(AST_NODE* typeNode);
+   Not sure what this should do...
+
+7. void processBlockNode(AST_NODE* blockNode);
+   Process children containing [VARIABLE_DECL_LIST_NODE | STMT_LIST_NODE].
+
+8. void processStmtNode(AST_NODE* stmtNode);
+   Process stmtNode according to its type [WHILE_STMT | FOR_STMT | ASSIGN_STMT |
+   IF_STMT | FUNCTION_CALL_STMT | RETURN_STMT].
+
+9. void processGeneralNode(AST_NODE *node);
+   Process node according to its type (not sure where this is useful).
+
+10. void checkAssignOrExpr(AST_NODE* assignOrExprRelatedNode);
+   Check assignOrExprRelatedNode according to its type [STMT_NODE |
+   ASSIGN_STMT | EXPR_NODE].
+
+11. void checkWhileStmt(AST_NODE* whileNode);
+   Check children containing EXPR_NODE (condition) and [BLOCK_NODE |
+   STMT_NODE].
+
+12. void checkForStmt(AST_NODE* forNode);
+   Check children containing [NONEMPTY_ASSIGN_EXPR_LIST_NODE | NUL_NODE]
+   (init), [NONEMPTY_RELOP_EXPR_LIST_NODE | NUL_NODE] (condition),
+   [NONEMPTY_ASSIGN_EXPR_LIST_NODE | NUL_NODE] (increment)] and [BLOCK_NODE |
+   STMT_NODE].
+
+13. void checkAssignmentStmt(AST_NODE* assignmentNode);
+   Check children containing IDENTIFIER_NODE (variable) and EXPR_NODE
+   (expression).
+
+14. void checkIfStmt(AST_NODE* ifNode);
+   Check children containing EXPR_NODE (condition), [BLOCK_NODE | STMT_NODE]
+   (if body), [BLOCK_NODE | STMT_NODE | NUL_NODE] (else body).
+
+15. void checkWriteFunction(AST_NODE* functionCallNode);
+   Check children containing IDENTIFIER_NODE (should be "write") and
+   a list of EXPR_NODE (function parameters).
+
+16. void checkFunctionCall(AST_NODE* functionCallNode);
+   Check children containing IDENTIFIER_NODE (function name) and a list of
+   EXPR_NODE (function parameters).
+
+17. void processExprRelatedNode(AST_NODE* exprRelatedNode);
+   Process exprRelatedNode according to its type (not sure where this is
+   useful).
+
+18. void checkParameterPassing(Parameter* formalParameter,
+                               AST_NODE* actualParameter);
+   Check a list of EXPR_NODE (parameters).
+
+19. void checkReturnStmt(AST_NODE* returnNode);
+   Check children containing [ EXPR_NODE, NUL_NODE ] (need to figure out how
+   to track current function).
+
+20. void processExprNode(AST_NODE* exprNode);
+   Process exprNode according to its type [ BINARY_OPERATION, UNARY_OPERATION ]
+
+21. void processVariableLValue(AST_NODE* idNode);
+   Process idNode according to its type [ NORMAL_ID | ARRAY_ID | WITH_INIT_ID ].
+   PURPOSE:
+     Need to make sure that idNode is a variable, then make sure that the number
+     of subscripts doesn't exceed its dimensions, then populate idNode->dataType
+     with the corresponding type (INT_TYPE / FLOAT_TYPE for scalar types and
+     INT_PTR_TYPE / FLOAT_PTR_TYPE for array types).
+
+22. void processVariableRValue(AST_NODE* idNode);
+   Process idNode according to its type [ NORMAL_ID | ARRAY_ID | WITH_INIT_ID ]
+   (not sure where the processing would be diffrent from lvalue) .
+
+23. void processConstValueNode(AST_NODE* constValueNode);
+   Process constValueNode according to its type [ BINARY_OPERATION,
+   UNARY_OPERATION ].
+
+24. void getExprOrConstValue(AST_NODE* exprOrConstNode
+                             int* iValue,
+                             float* fValue);
+   Process exprOrConstNode according to its type [ BINARY_OPERATION,
+   UNARY_OPERATION ].
+
+25. void evaluateExprValue(AST_NODE* exprNode);
+   Process exprNode according to its type (not sure why this cannot be combined
+   with processExprNode).
+

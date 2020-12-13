@@ -118,7 +118,7 @@
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 112 "parser.y"
+#line 110 "parser.y"
 {
 	char *lexeme;
 	CON_Type  *const1;

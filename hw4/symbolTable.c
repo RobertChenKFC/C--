@@ -88,7 +88,7 @@ void initializeSymbolTable() {
   symbolAttribute->attributeKind = FUNCTION_SIGNATURE;
   symbolAttribute->attr.functionSignature = functionSignature;
   enterSymbol(SYMBOL_TABLE_SYS_LIB_READ, symbolAttribute);
-  // read
+  // fread
   functionSignature = malloc(sizeof(FunctionSignature));
   functionSignature->parametersCount = 0;
   // TODO: figure out what the comment in Parameter struct means
@@ -204,3 +204,8 @@ void closeScope() {
   }
   --symbolTable.currentLevel;
 }
+
+int isGlobalScope() {
+  return symbolTable.currentLevel == 1;
+}
+

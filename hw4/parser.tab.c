@@ -152,102 +152,102 @@
 #include <stdarg.h>
 #include "header.h"
 #include "symbolTable.h"
+
 int linenumber = 1;
 AST_NODE *prog;
+int yylex();
+int yyerror(char *mesg);
 
 extern int g_anyErrorOccur;
 
-static inline AST_NODE* makeSibling(AST_NODE *a, AST_NODE *b)
-{ 
-    while (a->rightSibling) {
-        a = a->rightSibling;
-    }
-    if (b == NULL) {
-        return a;
-    }
-    b = b->leftmostSibling;
-    a->rightSibling = b;
-    
+static inline AST_NODE *makeSibling(AST_NODE * a, AST_NODE * b) {
+  while (a->rightSibling) {
+    a = a->rightSibling;
+  }
+  if (b == NULL) {
+    return a;
+  }
+  b = b->leftmostSibling;
+  a->rightSibling = b;
+
+  b->leftmostSibling = a->leftmostSibling;
+  b->parent = a->parent;
+  while (b->rightSibling) {
+    b = b->rightSibling;
     b->leftmostSibling = a->leftmostSibling;
     b->parent = a->parent;
-    while (b->rightSibling) {
-        b = b->rightSibling;
-        b->leftmostSibling = a->leftmostSibling;
-        b->parent = a->parent;
-    }
-    return b;
+  }
+  return b;
 }
 
-static inline AST_NODE* makeChild(AST_NODE *parent, AST_NODE *child)
-{
-    if (child == NULL) {
-        return parent;
-    }
-    if (parent->child) {
-        makeSibling(parent->child, child);
-    } else {
-        child = child->leftmostSibling;
-        parent->child = child;
-        while (child) {
-            child->parent = parent;
-            child = child->rightSibling;
-        }
-    }
+static inline AST_NODE *makeChild(AST_NODE * parent, AST_NODE * child) {
+  if (child == NULL) {
     return parent;
-}
-
-static AST_NODE* makeFamily(AST_NODE *parent, int childrenCount, ...)
-{
-    va_list childrenList;
-    va_start(childrenList, childrenCount);
-    AST_NODE* child = va_arg(childrenList, AST_NODE*);
-    makeChild(parent, child);
-    AST_NODE* tmp = child;
-    int index = 1;
-    for (index = 1; index < childrenCount; ++index) {
-        child = va_arg(childrenList, AST_NODE*);
-        tmp = makeSibling(tmp, child);
+  }
+  if (parent->child) {
+    makeSibling(parent->child, child);
+  } else {
+    child = child->leftmostSibling;
+    parent->child = child;
+    while (child) {
+      child->parent = parent;
+      child = child->rightSibling;
     }
-    va_end(childrenList);
-    return parent;
+  }
+  return parent;
 }
 
-static inline AST_NODE* makeIDNode(char *lexeme, IDENTIFIER_KIND idKind)
-{
-    AST_NODE* identifier = Allocate(IDENTIFIER_NODE);
-    identifier->semantic_value.identifierSemanticValue.identifierName = lexeme;
-    identifier->semantic_value.identifierSemanticValue.kind = idKind;
-    identifier->semantic_value.identifierSemanticValue.symbolTableEntry = NULL;
-    return identifier;                        
+static AST_NODE *makeFamily(AST_NODE * parent, int childrenCount, ...) {
+  va_list childrenList;
+  va_start(childrenList, childrenCount);
+  AST_NODE *child = va_arg(childrenList, AST_NODE *);
+  makeChild(parent, child);
+  AST_NODE *tmp = child;
+  int index = 1;
+  for (index = 1; index < childrenCount; ++index) {
+    child = va_arg(childrenList, AST_NODE *);
+    tmp = makeSibling(tmp, child);
+  }
+  va_end(childrenList);
+  return parent;
 }
 
-static inline AST_NODE* makeStmtNode(STMT_KIND stmtKind)
-{
-    AST_NODE* stmtNode = Allocate(STMT_NODE);
-    stmtNode->semantic_value.stmtSemanticValue.kind = stmtKind;
-    return stmtNode;                        
+static inline AST_NODE *makeIDNode(char *lexeme, IDENTIFIER_KIND idKind) {
+  AST_NODE *identifier = Allocate(IDENTIFIER_NODE);
+  identifier->semantic_value.identifierSemanticValue.identifierName = lexeme;
+  identifier->semantic_value.identifierSemanticValue.kind = idKind;
+  identifier->semantic_value.identifierSemanticValue.symbolTableEntry = NULL;
+  return identifier;
 }
 
-static inline AST_NODE* makeDeclNode(DECL_KIND declKind)
-{
-    AST_NODE* declNode = Allocate(DECLARATION_NODE);
-    declNode->semantic_value.declSemanticValue.kind = declKind;
-    return declNode;                        
+static inline AST_NODE *makeStmtNode(STMT_KIND stmtKind) {
+  AST_NODE *stmtNode = Allocate(STMT_NODE);
+  stmtNode->semantic_value.stmtSemanticValue.kind = stmtKind;
+  return stmtNode;
 }
 
-static inline AST_NODE* makeExprNode(EXPR_KIND exprKind, int operationEnumValue)
-{
-    AST_NODE* exprNode = Allocate(EXPR_NODE);
-    exprNode->semantic_value.exprSemanticValue.isConstEval = 0;
-    exprNode->semantic_value.exprSemanticValue.kind = exprKind;
-    if (exprKind == BINARY_OPERATION) {
-        exprNode->semantic_value.exprSemanticValue.op.binaryOp = operationEnumValue;
-    } else if (exprKind == UNARY_OPERATION) {
-        exprNode->semantic_value.exprSemanticValue.op.unaryOp = operationEnumValue;
-    } else {
-        printf("Error in static inline AST_NODE* makeExprNode(EXPR_KIND exprKind, int operationEnumValue)\n");
-    }
-    return exprNode;                        
+static inline AST_NODE *makeDeclNode(DECL_KIND declKind) {
+  AST_NODE *declNode = Allocate(DECLARATION_NODE);
+  declNode->semantic_value.declSemanticValue.kind = declKind;
+  return declNode;
+}
+
+static inline AST_NODE *makeExprNode(EXPR_KIND exprKind,
+                                     int operationEnumValue) {
+  AST_NODE *exprNode = Allocate(EXPR_NODE);
+  exprNode->semantic_value.exprSemanticValue.isConstEval = 0;
+  exprNode->semantic_value.exprSemanticValue.kind = exprKind;
+  if (exprKind == BINARY_OPERATION) {
+    exprNode->semantic_value.exprSemanticValue.op.binaryOp =
+        operationEnumValue;
+  } else if (exprKind == UNARY_OPERATION) {
+    exprNode->semantic_value.exprSemanticValue.op.unaryOp =
+        operationEnumValue;
+  } else {
+    printf("Error in static inline AST_NODE* makeExprNode(EXPR_KIND "
+           "exprKind, int operationEnumValue)\n");
+  }
+  return exprNode;
 }
 
 
@@ -272,7 +272,7 @@ static inline AST_NODE* makeExprNode(EXPR_KIND exprKind, int operationEnumValue)
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 112 "parser.y"
+#line 110 "parser.y"
 {
 	char *lexeme;
 	CON_Type  *const1;
@@ -627,18 +627,18 @@ static const yytype_int8 yyrhs[] =
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   166,   166,   167,   170,   174,   180,   184,   190,   197,
-     205,   213,   219,   226,   235,   239,   245,   250,   255,   260,
-     266,   270,   276,   281,   286,   291,   296,   301,   306,   310,
-     316,   320,   326,   331,   339,   344,   351,   355,   361,   365,
-     369,   373,   378,   382,   387,   392,   397,   402,   407,   412,
-     418,   423,   429,   433,   439,   443,   447,   453,   457,   465,
-     469,   474,   479,   484,   489,   494,   499,   503,   508,   515,
-     520,   525,   529,   535,   541,   547,   553,   557,   564,   568,
-     575,   579,   585,   589,   593,   597,   601,   605,   612,   617,
-     622,   626,   632,   636,   642,   646,   652,   656,   662,   666,
-     672,   676,   681,   686,   691,   698,   705,   710,   717,   724,
-     728,   733,   740,   744,   752,   756
+       0,   164,   164,   165,   168,   172,   178,   182,   188,   195,
+     203,   211,   217,   224,   233,   237,   243,   248,   253,   258,
+     264,   268,   274,   279,   284,   289,   294,   299,   304,   308,
+     314,   318,   324,   329,   337,   342,   349,   353,   359,   363,
+     367,   371,   376,   380,   385,   390,   395,   400,   405,   410,
+     416,   421,   427,   431,   437,   441,   445,   451,   455,   463,
+     467,   472,   477,   482,   487,   492,   497,   501,   506,   513,
+     518,   523,   527,   533,   539,   545,   551,   555,   562,   566,
+     573,   577,   583,   587,   591,   595,   599,   603,   610,   615,
+     620,   624,   630,   634,   640,   644,   650,   654,   660,   664,
+     670,   674,   679,   684,   689,   696,   703,   708,   715,   722,
+     726,   731,   738,   742,   750,   754
 };
 #endif
 
@@ -1702,45 +1702,45 @@ yyreduce:
   switch (yyn)
     {
         case 2:
-#line 166 "parser.y"
+#line 164 "parser.y"
     { (yyval.node)=Allocate(PROGRAM_NODE);  makeChild((yyval.node),(yyvsp[(1) - (1)].node)); prog=(yyval.node);;}
     break;
 
   case 3:
-#line 167 "parser.y"
+#line 165 "parser.y"
     { (yyval.node)=Allocate(PROGRAM_NODE); prog=(yyval.node);;}
     break;
 
   case 4:
-#line 171 "parser.y"
+#line 169 "parser.y"
     {
                         (yyval.node) = makeSibling((yyvsp[(1) - (2)].node), (yyvsp[(2) - (2)].node));
                     ;}
     break;
 
   case 5:
-#line 175 "parser.y"
+#line 173 "parser.y"
     {
                         (yyval.node) = (yyvsp[(1) - (1)].node);
                     ;}
     break;
 
   case 6:
-#line 181 "parser.y"
+#line 179 "parser.y"
     {
                     (yyval.node) = makeSibling(makeChild(Allocate(VARIABLE_DECL_LIST_NODE), (yyvsp[(1) - (2)].node)), (yyvsp[(2) - (2)].node));
                 ;}
     break;
 
   case 7:
-#line 185 "parser.y"
+#line 183 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 8:
-#line 191 "parser.y"
+#line 189 "parser.y"
     {
                         (yyval.node) = makeDeclNode(FUNCTION_DECL);
                         AST_NODE* parameterList = Allocate(PARAM_LIST_NODE);
@@ -1750,7 +1750,7 @@ yyreduce:
     break;
 
   case 9:
-#line 198 "parser.y"
+#line 196 "parser.y"
     {
                         (yyval.node) = makeDeclNode(FUNCTION_DECL);
                         AST_NODE* voidNode = makeIDNode("void", NORMAL_ID);
@@ -1761,7 +1761,7 @@ yyreduce:
     break;
 
   case 10:
-#line 206 "parser.y"
+#line 204 "parser.y"
     {
                         (yyval.node) = makeDeclNode(FUNCTION_DECL);
                         AST_NODE* idNode = makeIDNode((yyvsp[(1) - (8)].lexeme), NORMAL_ID);
@@ -1772,7 +1772,7 @@ yyreduce:
     break;
 
   case 11:
-#line 214 "parser.y"
+#line 212 "parser.y"
     {
                         (yyval.node) = makeDeclNode(FUNCTION_DECL);
                         AST_NODE* emptyParameterList = Allocate(PARAM_LIST_NODE);
@@ -1781,7 +1781,7 @@ yyreduce:
     break;
 
   case 12:
-#line 220 "parser.y"
+#line 218 "parser.y"
     {
                         (yyval.node) = makeDeclNode(FUNCTION_DECL);
                         AST_NODE* voidNode = makeIDNode("void", NORMAL_ID);
@@ -1791,7 +1791,7 @@ yyreduce:
     break;
 
   case 13:
-#line 227 "parser.y"
+#line 225 "parser.y"
     {
                         (yyval.node) = makeDeclNode(FUNCTION_DECL);
                         AST_NODE* idNode = makeIDNode((yyvsp[(1) - (7)].lexeme), NORMAL_ID);
@@ -1801,21 +1801,21 @@ yyreduce:
     break;
 
   case 14:
-#line 236 "parser.y"
+#line 234 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
                 ;}
     break;
 
   case 15:
-#line 240 "parser.y"
+#line 238 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node); 
                 ;}
     break;
 
   case 16:
-#line 246 "parser.y"
+#line 244 "parser.y"
     {
                     (yyval.node) = makeDeclNode(FUNCTION_PARAMETER_DECL);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (2)].node), makeIDNode((yyvsp[(2) - (2)].lexeme), NORMAL_ID));
@@ -1823,7 +1823,7 @@ yyreduce:
     break;
 
   case 17:
-#line 251 "parser.y"
+#line 249 "parser.y"
     {
                     (yyval.node) = makeDeclNode(FUNCTION_PARAMETER_DECL);
                     makeFamily((yyval.node), 2, makeIDNode((yyvsp[(1) - (2)].lexeme), NORMAL_ID), makeIDNode((yyvsp[(2) - (2)].lexeme), NORMAL_ID));
@@ -1831,7 +1831,7 @@ yyreduce:
     break;
 
   case 18:
-#line 256 "parser.y"
+#line 254 "parser.y"
     {
                     (yyval.node) = makeDeclNode(FUNCTION_PARAMETER_DECL);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), makeChild(makeIDNode((yyvsp[(2) - (3)].lexeme), ARRAY_ID), (yyvsp[(3) - (3)].node)));
@@ -1839,7 +1839,7 @@ yyreduce:
     break;
 
   case 19:
-#line 261 "parser.y"
+#line 259 "parser.y"
     {
                     (yyval.node) = makeDeclNode(FUNCTION_PARAMETER_DECL);
                     makeFamily((yyval.node), 2, makeIDNode((yyvsp[(1) - (3)].lexeme), NORMAL_ID), makeChild(makeIDNode((yyvsp[(2) - (3)].lexeme), ARRAY_ID), (yyvsp[(3) - (3)].node)));
@@ -1847,35 +1847,35 @@ yyreduce:
     break;
 
   case 20:
-#line 267 "parser.y"
+#line 265 "parser.y"
     {
                     (yyval.node) = (yyvsp[(2) - (3)].node);
                 ;}
     break;
 
   case 21:
-#line 271 "parser.y"
+#line 269 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (4)].node), (yyvsp[(3) - (4)].node));
                 ;}
     break;
 
   case 22:
-#line 277 "parser.y"
+#line 275 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 23:
-#line 281 "parser.y"
+#line 279 "parser.y"
     {
                     (yyval.node) = Allocate(NUL_NODE); 
                 ;}
     break;
 
   case 24:
-#line 287 "parser.y"
+#line 285 "parser.y"
     {
                         (yyval.node) = Allocate(BLOCK_NODE);
                         makeFamily((yyval.node), 2, makeChild(Allocate(VARIABLE_DECL_LIST_NODE), (yyvsp[(1) - (2)].node)), makeChild(Allocate(STMT_LIST_NODE), (yyvsp[(2) - (2)].node)));
@@ -1883,7 +1883,7 @@ yyreduce:
     break;
 
   case 25:
-#line 292 "parser.y"
+#line 290 "parser.y"
     {
                         (yyval.node) = Allocate(BLOCK_NODE);
                         makeChild((yyval.node), makeChild(Allocate(STMT_LIST_NODE), (yyvsp[(1) - (1)].node)));
@@ -1891,7 +1891,7 @@ yyreduce:
     break;
 
   case 26:
-#line 297 "parser.y"
+#line 295 "parser.y"
     {
                         (yyval.node) = Allocate(BLOCK_NODE);
                         makeChild((yyval.node), makeChild(Allocate(VARIABLE_DECL_LIST_NODE), (yyvsp[(1) - (1)].node)));
@@ -1899,42 +1899,42 @@ yyreduce:
     break;
 
   case 27:
-#line 301 "parser.y"
+#line 299 "parser.y"
     {
                         (yyval.node) = Allocate(BLOCK_NODE);
                     ;}
     break;
 
   case 28:
-#line 307 "parser.y"
+#line 305 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (2)].node), (yyvsp[(2) - (2)].node));
                 ;}
     break;
 
   case 29:
-#line 311 "parser.y"
+#line 309 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 30:
-#line 317 "parser.y"
+#line 315 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 31:
-#line 321 "parser.y"
+#line 319 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 32:
-#line 327 "parser.y"
+#line 325 "parser.y"
     {
                     (yyval.node) = makeDeclNode(TYPE_DECL);
                     makeFamily((yyval.node), 2, (yyvsp[(2) - (4)].node), (yyvsp[(3) - (4)].node));
@@ -1942,7 +1942,7 @@ yyreduce:
     break;
 
   case 33:
-#line 332 "parser.y"
+#line 330 "parser.y"
     {
                     (yyval.node) = makeDeclNode(TYPE_DECL);
                     AST_NODE* voidNode = makeIDNode("void", NORMAL_ID);
@@ -1951,7 +1951,7 @@ yyreduce:
     break;
 
   case 34:
-#line 340 "parser.y"
+#line 338 "parser.y"
     {
                     (yyval.node) = makeDeclNode(VARIABLE_DECL);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(2) - (3)].node));
@@ -1959,7 +1959,7 @@ yyreduce:
     break;
 
   case 35:
-#line 345 "parser.y"
+#line 343 "parser.y"
     {
                     (yyval.node) = makeDeclNode(VARIABLE_DECL);
                     makeFamily((yyval.node), 2, makeIDNode((yyvsp[(1) - (3)].lexeme), NORMAL_ID), (yyvsp[(2) - (3)].node));
@@ -1967,63 +1967,63 @@ yyreduce:
     break;
 
   case 36:
-#line 352 "parser.y"
+#line 350 "parser.y"
     {
                     (yyval.node) = makeIDNode("int", NORMAL_ID);  
                 ;}
     break;
 
   case 37:
-#line 356 "parser.y"
+#line 354 "parser.y"
     {
                     (yyval.node) = makeIDNode("float", NORMAL_ID);
                 ;}
     break;
 
   case 38:
-#line 362 "parser.y"
+#line 360 "parser.y"
     {
                     (yyval.node) = makeIDNode((yyvsp[(1) - (1)].lexeme), NORMAL_ID);
                 ;}
     break;
 
   case 39:
-#line 366 "parser.y"
+#line 364 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (3)].node), makeIDNode((yyvsp[(3) - (3)].lexeme), NORMAL_ID));
                 ;}
     break;
 
   case 40:
-#line 370 "parser.y"
+#line 368 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (4)].node), makeChild(makeIDNode((yyvsp[(3) - (4)].lexeme), ARRAY_ID), (yyvsp[(4) - (4)].node)));
                 ;}
     break;
 
   case 41:
-#line 374 "parser.y"
+#line 372 "parser.y"
     {
                     (yyval.node) = makeChild(makeIDNode((yyvsp[(1) - (2)].lexeme), ARRAY_ID), (yyvsp[(2) - (2)].node));
                 ;}
     break;
 
   case 42:
-#line 379 "parser.y"
+#line 377 "parser.y"
     {
                     (yyval.node) = (yyvsp[(2) - (3)].node);
                 ;}
     break;
 
   case 43:
-#line 383 "parser.y"
+#line 381 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (4)].node), (yyvsp[(3) - (4)].node));
                 ;}
     break;
 
   case 44:
-#line 388 "parser.y"
+#line 386 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_ADD);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
@@ -2031,7 +2031,7 @@ yyreduce:
     break;
 
   case 45:
-#line 393 "parser.y"
+#line 391 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_SUB);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
@@ -2039,14 +2039,14 @@ yyreduce:
     break;
 
   case 46:
-#line 398 "parser.y"
+#line 396 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 47:
-#line 403 "parser.y"
+#line 401 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_MUL);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
@@ -2054,7 +2054,7 @@ yyreduce:
     break;
 
   case 48:
-#line 408 "parser.y"
+#line 406 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_DIV);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
@@ -2062,14 +2062,14 @@ yyreduce:
     break;
 
   case 49:
-#line 413 "parser.y"
+#line 411 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 50:
-#line 419 "parser.y"
+#line 417 "parser.y"
     {
                     (yyval.node) = Allocate(CONST_VALUE_NODE);
                     (yyval.node)->semantic_value.const1 = (yyvsp[(1) - (1)].const1);
@@ -2077,70 +2077,70 @@ yyreduce:
     break;
 
   case 51:
-#line 424 "parser.y"
+#line 422 "parser.y"
     {
                     (yyval.node) = (yyvsp[(2) - (3)].node);
                 ;}
     break;
 
   case 52:
-#line 430 "parser.y"
+#line 428 "parser.y"
     {
                         (yyval.node) = (yyvsp[(1) - (1)].node); 
                     ;}
     break;
 
   case 53:
-#line 434 "parser.y"
+#line 432 "parser.y"
     {
                         (yyval.node) = makeSibling((yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
                     ;}
     break;
 
   case 54:
-#line 440 "parser.y"
+#line 438 "parser.y"
     {
                     (yyval.node) = makeIDNode((yyvsp[(1) - (1)].lexeme), NORMAL_ID);
                 ;}
     break;
 
   case 55:
-#line 444 "parser.y"
+#line 442 "parser.y"
     {
                     (yyval.node) = makeChild(makeIDNode((yyvsp[(1) - (2)].lexeme), ARRAY_ID), (yyvsp[(2) - (2)].node));
                 ;}
     break;
 
   case 56:
-#line 448 "parser.y"
+#line 446 "parser.y"
     {
                     (yyval.node) = makeChild(makeIDNode((yyvsp[(1) - (3)].lexeme), WITH_INIT_ID), (yyvsp[(3) - (3)].node));
                 ;}
     break;
 
   case 57:
-#line 454 "parser.y"
+#line 452 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (2)].node), (yyvsp[(2) - (2)].node));
                 ;}
     break;
 
   case 58:
-#line 458 "parser.y"
+#line 456 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 59:
-#line 466 "parser.y"
+#line 464 "parser.y"
     {
                     (yyval.node) = (yyvsp[(2) - (3)].node);
                 ;}
     break;
 
   case 60:
-#line 470 "parser.y"
+#line 468 "parser.y"
     {
                     (yyval.node) = makeStmtNode(WHILE_STMT);
                     makeFamily((yyval.node), 2, (yyvsp[(3) - (5)].node), (yyvsp[(5) - (5)].node));
@@ -2148,7 +2148,7 @@ yyreduce:
     break;
 
   case 61:
-#line 475 "parser.y"
+#line 473 "parser.y"
     {
                     (yyval.node) = makeStmtNode(FOR_STMT);
                     makeFamily((yyval.node), 4, (yyvsp[(3) - (9)].node), (yyvsp[(5) - (9)].node), (yyvsp[(7) - (9)].node), (yyvsp[(9) - (9)].node));
@@ -2156,7 +2156,7 @@ yyreduce:
     break;
 
   case 62:
-#line 480 "parser.y"
+#line 478 "parser.y"
     {
                     (yyval.node) = makeStmtNode(ASSIGN_STMT);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (4)].node), (yyvsp[(3) - (4)].node));
@@ -2164,7 +2164,7 @@ yyreduce:
     break;
 
   case 63:
-#line 485 "parser.y"
+#line 483 "parser.y"
     {
                     (yyval.node) = makeStmtNode(IF_STMT);
                     makeFamily((yyval.node), 3, (yyvsp[(3) - (5)].node), (yyvsp[(5) - (5)].node), Allocate(NUL_NODE));
@@ -2172,7 +2172,7 @@ yyreduce:
     break;
 
   case 64:
-#line 490 "parser.y"
+#line 488 "parser.y"
     {
                     (yyval.node) = makeStmtNode(IF_STMT);
                     makeFamily((yyval.node), 3, (yyvsp[(3) - (7)].node), (yyvsp[(5) - (7)].node), (yyvsp[(7) - (7)].node));
@@ -2180,7 +2180,7 @@ yyreduce:
     break;
 
   case 65:
-#line 495 "parser.y"
+#line 493 "parser.y"
     {
                     (yyval.node) = makeStmtNode(FUNCTION_CALL_STMT);
                     makeFamily((yyval.node), 2, makeIDNode((yyvsp[(1) - (5)].lexeme), NORMAL_ID), (yyvsp[(3) - (5)].node));
@@ -2188,14 +2188,14 @@ yyreduce:
     break;
 
   case 66:
-#line 500 "parser.y"
+#line 498 "parser.y"
     {
                     (yyval.node) = Allocate(NUL_NODE);
                 ;}
     break;
 
   case 67:
-#line 504 "parser.y"
+#line 502 "parser.y"
     {
                     (yyval.node) = makeStmtNode(RETURN_STMT);
                     makeChild((yyval.node), Allocate(NUL_NODE));
@@ -2203,7 +2203,7 @@ yyreduce:
     break;
 
   case 68:
-#line 509 "parser.y"
+#line 507 "parser.y"
     {
                     (yyval.node) = makeStmtNode(RETURN_STMT);
                     makeChild((yyval.node), (yyvsp[(2) - (3)].node));
@@ -2211,42 +2211,42 @@ yyreduce:
     break;
 
   case 69:
-#line 516 "parser.y"
+#line 514 "parser.y"
     {
                         (yyval.node) = makeChild(Allocate(NONEMPTY_ASSIGN_EXPR_LIST_NODE), (yyvsp[(1) - (1)].node));
                      ;}
     break;
 
   case 70:
-#line 520 "parser.y"
+#line 518 "parser.y"
     {
                          (yyval.node) = Allocate(NUL_NODE); 
                      ;}
     break;
 
   case 71:
-#line 526 "parser.y"
+#line 524 "parser.y"
     {
                                         (yyval.node) = makeSibling((yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
                                     ;}
     break;
 
   case 72:
-#line 530 "parser.y"
+#line 528 "parser.y"
     {
                                         (yyval.node) = (yyvsp[(1) - (1)].node);
                                     ;}
     break;
 
   case 73:
-#line 536 "parser.y"
+#line 534 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 74:
-#line 542 "parser.y"
+#line 540 "parser.y"
     {
                         //TODO: for simpler implementation, use ASSIGN_STMT for now
                         (yyval.node) = makeStmtNode(ASSIGN_STMT);
@@ -2255,21 +2255,21 @@ yyreduce:
     break;
 
   case 75:
-#line 548 "parser.y"
+#line 546 "parser.y"
     {
                         (yyval.node) = (yyvsp[(1) - (1)].node);
                     ;}
     break;
 
   case 76:
-#line 554 "parser.y"
+#line 552 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 77:
-#line 558 "parser.y"
+#line 556 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_OR);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
@@ -2277,14 +2277,14 @@ yyreduce:
     break;
 
   case 78:
-#line 565 "parser.y"
+#line 563 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 79:
-#line 569 "parser.y"
+#line 567 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_AND);
                     makeFamily((yyval.node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
@@ -2292,154 +2292,154 @@ yyreduce:
     break;
 
   case 80:
-#line 576 "parser.y"
+#line 574 "parser.y"
     {
                         (yyval.node) = (yyvsp[(1) - (1)].node);
                     ;}
     break;
 
   case 81:
-#line 580 "parser.y"
+#line 578 "parser.y"
     {
                         (yyval.node) = makeFamily((yyvsp[(2) - (3)].node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
                     ;}
     break;
 
   case 82:
-#line 586 "parser.y"
+#line 584 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_EQ);
                 ;}
     break;
 
   case 83:
-#line 590 "parser.y"
+#line 588 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_GE);
                 ;}
     break;
 
   case 84:
-#line 594 "parser.y"
+#line 592 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_LE);
                 ;}
     break;
 
   case 85:
-#line 598 "parser.y"
+#line 596 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_NE);
                 ;}
     break;
 
   case 86:
-#line 602 "parser.y"
+#line 600 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_GT);
                 ;}
     break;
 
   case 87:
-#line 606 "parser.y"
+#line 604 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_LT);
                 ;}
     break;
 
   case 88:
-#line 613 "parser.y"
+#line 611 "parser.y"
     {
                         (yyval.node) = makeChild(Allocate(NONEMPTY_RELOP_EXPR_LIST_NODE), (yyvsp[(1) - (1)].node));
                     ;}
     break;
 
   case 89:
-#line 617 "parser.y"
+#line 615 "parser.y"
     {
                         (yyval.node) = Allocate(NUL_NODE);
                     ;}
     break;
 
   case 90:
-#line 623 "parser.y"
+#line 621 "parser.y"
     {
                                     (yyval.node) = makeSibling((yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
                                 ;}
     break;
 
   case 91:
-#line 627 "parser.y"
+#line 625 "parser.y"
     {
                                     (yyval.node) = (yyvsp[(1) - (1)].node);
                                 ;}
     break;
 
   case 92:
-#line 633 "parser.y"
+#line 631 "parser.y"
     {
                     (yyval.node) = makeFamily((yyvsp[(2) - (3)].node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
                 ;}
     break;
 
   case 93:
-#line 637 "parser.y"
+#line 635 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 94:
-#line 643 "parser.y"
+#line 641 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_ADD);
                 ;}
     break;
 
   case 95:
-#line 647 "parser.y"
+#line 645 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_SUB);
                 ;}
     break;
 
   case 96:
-#line 653 "parser.y"
+#line 651 "parser.y"
     {
                     (yyval.node) = makeFamily((yyvsp[(2) - (3)].node), 2, (yyvsp[(1) - (3)].node), (yyvsp[(3) - (3)].node));
                 ;}
     break;
 
   case 97:
-#line 657 "parser.y"
+#line 655 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 98:
-#line 663 "parser.y"
+#line 661 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_MUL);
                 ;}
     break;
 
   case 99:
-#line 667 "parser.y"
+#line 665 "parser.y"
     {
                     (yyval.node) = makeExprNode(BINARY_OPERATION, BINARY_OP_DIV);
                 ;}
     break;
 
   case 100:
-#line 673 "parser.y"
+#line 671 "parser.y"
     {
                     (yyval.node) = (yyvsp[(2) - (3)].node);
                 ;}
     break;
 
   case 101:
-#line 677 "parser.y"
+#line 675 "parser.y"
     {
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_NEGATIVE);
                     makeChild((yyval.node), (yyvsp[(3) - (4)].node));
@@ -2447,7 +2447,7 @@ yyreduce:
     break;
 
   case 102:
-#line 682 "parser.y"
+#line 680 "parser.y"
     {   
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_LOGICAL_NEGATION);
                     makeChild((yyval.node), (yyvsp[(3) - (4)].node));
@@ -2455,7 +2455,7 @@ yyreduce:
     break;
 
   case 103:
-#line 687 "parser.y"
+#line 685 "parser.y"
     {
                     (yyval.node) = Allocate(CONST_VALUE_NODE);
                     (yyval.node)->semantic_value.const1=(yyvsp[(1) - (1)].const1);
@@ -2463,7 +2463,7 @@ yyreduce:
     break;
 
   case 104:
-#line 692 "parser.y"
+#line 690 "parser.y"
     {
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_NEGATIVE);
                     AST_NODE *constNode = Allocate(CONST_VALUE_NODE);
@@ -2473,7 +2473,7 @@ yyreduce:
     break;
 
   case 105:
-#line 699 "parser.y"
+#line 697 "parser.y"
     {
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_LOGICAL_NEGATION);
                     AST_NODE *constNode = Allocate(CONST_VALUE_NODE);
@@ -2483,7 +2483,7 @@ yyreduce:
     break;
 
   case 106:
-#line 706 "parser.y"
+#line 704 "parser.y"
     {
                     (yyval.node) = makeStmtNode(FUNCTION_CALL_STMT);
                     makeFamily((yyval.node), 2, makeIDNode((yyvsp[(1) - (4)].lexeme), NORMAL_ID), (yyvsp[(3) - (4)].node));
@@ -2491,7 +2491,7 @@ yyreduce:
     break;
 
   case 107:
-#line 711 "parser.y"
+#line 709 "parser.y"
     {
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_NEGATIVE);
                     AST_NODE* functionCallNode = makeStmtNode(FUNCTION_CALL_STMT);
@@ -2501,7 +2501,7 @@ yyreduce:
     break;
 
   case 108:
-#line 718 "parser.y"
+#line 716 "parser.y"
     {
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_LOGICAL_NEGATION);
                     AST_NODE* functionCallNode = makeStmtNode(FUNCTION_CALL_STMT);
@@ -2511,14 +2511,14 @@ yyreduce:
     break;
 
   case 109:
-#line 725 "parser.y"
+#line 723 "parser.y"
     {
                     (yyval.node) = (yyvsp[(1) - (1)].node);
                 ;}
     break;
 
   case 110:
-#line 729 "parser.y"
+#line 727 "parser.y"
     {
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_NEGATIVE);
                     makeChild((yyval.node), (yyvsp[(2) - (2)].node));
@@ -2526,7 +2526,7 @@ yyreduce:
     break;
 
   case 111:
-#line 734 "parser.y"
+#line 732 "parser.y"
     {
                     (yyval.node) = makeExprNode(UNARY_OPERATION, UNARY_OP_LOGICAL_NEGATION);
                     makeChild((yyval.node), (yyvsp[(2) - (2)].node));
@@ -2534,14 +2534,14 @@ yyreduce:
     break;
 
   case 112:
-#line 741 "parser.y"
+#line 739 "parser.y"
     {
                     (yyval.node) = makeIDNode((yyvsp[(1) - (1)].lexeme), NORMAL_ID);
                 ;}
     break;
 
   case 113:
-#line 745 "parser.y"
+#line 743 "parser.y"
     {
                     (yyval.node) = makeIDNode((yyvsp[(1) - (2)].lexeme), ARRAY_ID);
                     makeChild((yyval.node),(yyvsp[(2) - (2)].node));
@@ -2549,14 +2549,14 @@ yyreduce:
     break;
 
   case 114:
-#line 753 "parser.y"
+#line 751 "parser.y"
     {
                     (yyval.node) = makeSibling((yyvsp[(1) - (4)].node), (yyvsp[(3) - (4)].node));
                 ;}
     break;
 
   case 115:
-#line 757 "parser.y"
+#line 755 "parser.y"
     {
                     (yyval.node) = (yyvsp[(2) - (3)].node);
                 ;}
@@ -2778,33 +2778,29 @@ yyreturn:
 }
 
 
-#line 763 "parser.y"
+#line 760 "parser.y"
 
 
 #include "lex.yy.c"
-main (argc, argv)
-int argc;
-char *argv[];
-  {
-     yyin = fopen(argv[1],"r");
-     yyparse();
-     // printGV(prog, NULL);
-     
-     initializeSymbolTable();
-     
-     semanticAnalysis(prog);
-     
-     symbolTableEnd();
-     if (!g_anyErrorOccur) {
-        printf("Parsing completed. No errors found.\n");
-     }
-  } /* main */
+int main(int argc, char *argv[]) {
+  yyin = fopen(argv[1], "r");
+  yyparse();
+  // printGV(prog, NULL);
 
+  initializeSymbolTable();
 
-int yyerror (mesg)
-char *mesg;
-  {
-  printf("%s\t%d\t%s\t%s\n", "Error found in Line ", linenumber, "next token: ", yytext );
-  exit(1);
+  semanticAnalysis(prog);
+
+  symbolTableEnd();
+  if (!g_anyErrorOccur) {
+    printf("Parsing completed. No errors found.\n");
   }
+} /* main */
+
+int yyerror(char *mesg) {
+  printf("%s\t%d\t%s\t%s\n", "Error found in Line ", linenumber,
+         "next token: ", yytext);
+  exit(1);
+}
+
 

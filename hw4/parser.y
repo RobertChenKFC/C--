@@ -7,107 +7,105 @@
 #include <stdarg.h>
 #include "header.h"
 #include "symbolTable.h"
+
 int linenumber = 1;
 AST_NODE *prog;
+int yylex();
+int yyerror(char *mesg);
 
 extern int g_anyErrorOccur;
 
-static inline AST_NODE* makeSibling(AST_NODE *a, AST_NODE *b)
-{ 
-    while (a->rightSibling) {
-        a = a->rightSibling;
-    }
-    if (b == NULL) {
-        return a;
-    }
-    b = b->leftmostSibling;
-    a->rightSibling = b;
-    
+static inline AST_NODE *makeSibling(AST_NODE * a, AST_NODE * b) {
+  while (a->rightSibling) {
+    a = a->rightSibling;
+  }
+  if (b == NULL) {
+    return a;
+  }
+  b = b->leftmostSibling;
+  a->rightSibling = b;
+
+  b->leftmostSibling = a->leftmostSibling;
+  b->parent = a->parent;
+  while (b->rightSibling) {
+    b = b->rightSibling;
     b->leftmostSibling = a->leftmostSibling;
     b->parent = a->parent;
-    while (b->rightSibling) {
-        b = b->rightSibling;
-        b->leftmostSibling = a->leftmostSibling;
-        b->parent = a->parent;
-    }
-    return b;
+  }
+  return b;
 }
 
-static inline AST_NODE* makeChild(AST_NODE *parent, AST_NODE *child)
-{
-    if (child == NULL) {
-        return parent;
-    }
-    if (parent->child) {
-        makeSibling(parent->child, child);
-    } else {
-        child = child->leftmostSibling;
-        parent->child = child;
-        while (child) {
-            child->parent = parent;
-            child = child->rightSibling;
-        }
-    }
+static inline AST_NODE *makeChild(AST_NODE * parent, AST_NODE * child) {
+  if (child == NULL) {
     return parent;
-}
-
-static AST_NODE* makeFamily(AST_NODE *parent, int childrenCount, ...)
-{
-    va_list childrenList;
-    va_start(childrenList, childrenCount);
-    AST_NODE* child = va_arg(childrenList, AST_NODE*);
-    makeChild(parent, child);
-    AST_NODE* tmp = child;
-    int index = 1;
-    for (index = 1; index < childrenCount; ++index) {
-        child = va_arg(childrenList, AST_NODE*);
-        tmp = makeSibling(tmp, child);
+  }
+  if (parent->child) {
+    makeSibling(parent->child, child);
+  } else {
+    child = child->leftmostSibling;
+    parent->child = child;
+    while (child) {
+      child->parent = parent;
+      child = child->rightSibling;
     }
-    va_end(childrenList);
-    return parent;
+  }
+  return parent;
 }
 
-static inline AST_NODE* makeIDNode(char *lexeme, IDENTIFIER_KIND idKind)
-{
-    AST_NODE* identifier = Allocate(IDENTIFIER_NODE);
-    identifier->semantic_value.identifierSemanticValue.identifierName = lexeme;
-    identifier->semantic_value.identifierSemanticValue.kind = idKind;
-    identifier->semantic_value.identifierSemanticValue.symbolTableEntry = NULL;
-    return identifier;                        
+static AST_NODE *makeFamily(AST_NODE * parent, int childrenCount, ...) {
+  va_list childrenList;
+  va_start(childrenList, childrenCount);
+  AST_NODE *child = va_arg(childrenList, AST_NODE *);
+  makeChild(parent, child);
+  AST_NODE *tmp = child;
+  int index = 1;
+  for (index = 1; index < childrenCount; ++index) {
+    child = va_arg(childrenList, AST_NODE *);
+    tmp = makeSibling(tmp, child);
+  }
+  va_end(childrenList);
+  return parent;
 }
 
-static inline AST_NODE* makeStmtNode(STMT_KIND stmtKind)
-{
-    AST_NODE* stmtNode = Allocate(STMT_NODE);
-    stmtNode->semantic_value.stmtSemanticValue.kind = stmtKind;
-    return stmtNode;                        
+static inline AST_NODE *makeIDNode(char *lexeme, IDENTIFIER_KIND idKind) {
+  AST_NODE *identifier = Allocate(IDENTIFIER_NODE);
+  identifier->semantic_value.identifierSemanticValue.identifierName = lexeme;
+  identifier->semantic_value.identifierSemanticValue.kind = idKind;
+  identifier->semantic_value.identifierSemanticValue.symbolTableEntry = NULL;
+  return identifier;
 }
 
-static inline AST_NODE* makeDeclNode(DECL_KIND declKind)
-{
-    AST_NODE* declNode = Allocate(DECLARATION_NODE);
-    declNode->semantic_value.declSemanticValue.kind = declKind;
-    return declNode;                        
+static inline AST_NODE *makeStmtNode(STMT_KIND stmtKind) {
+  AST_NODE *stmtNode = Allocate(STMT_NODE);
+  stmtNode->semantic_value.stmtSemanticValue.kind = stmtKind;
+  return stmtNode;
 }
 
-static inline AST_NODE* makeExprNode(EXPR_KIND exprKind, int operationEnumValue)
-{
-    AST_NODE* exprNode = Allocate(EXPR_NODE);
-    exprNode->semantic_value.exprSemanticValue.isConstEval = 0;
-    exprNode->semantic_value.exprSemanticValue.kind = exprKind;
-    if (exprKind == BINARY_OPERATION) {
-        exprNode->semantic_value.exprSemanticValue.op.binaryOp = operationEnumValue;
-    } else if (exprKind == UNARY_OPERATION) {
-        exprNode->semantic_value.exprSemanticValue.op.unaryOp = operationEnumValue;
-    } else {
-        printf("Error in static inline AST_NODE* makeExprNode(EXPR_KIND exprKind, int operationEnumValue)\n");
-    }
-    return exprNode;                        
+static inline AST_NODE *makeDeclNode(DECL_KIND declKind) {
+  AST_NODE *declNode = Allocate(DECLARATION_NODE);
+  declNode->semantic_value.declSemanticValue.kind = declKind;
+  return declNode;
+}
+
+static inline AST_NODE *makeExprNode(EXPR_KIND exprKind,
+                                     int operationEnumValue) {
+  AST_NODE *exprNode = Allocate(EXPR_NODE);
+  exprNode->semantic_value.exprSemanticValue.isConstEval = 0;
+  exprNode->semantic_value.exprSemanticValue.kind = exprKind;
+  if (exprKind == BINARY_OPERATION) {
+    exprNode->semantic_value.exprSemanticValue.op.binaryOp =
+        operationEnumValue;
+  } else if (exprKind == UNARY_OPERATION) {
+    exprNode->semantic_value.exprSemanticValue.op.unaryOp =
+        operationEnumValue;
+  } else {
+    printf("Error in static inline AST_NODE* makeExprNode(EXPR_KIND "
+           "exprKind, int operationEnumValue)\n");
+  }
+  return exprNode;
 }
 
 %}
-
-
 
 %union{
 	char *lexeme;
@@ -759,32 +757,27 @@ dim_list	: dim_list MK_LB expr MK_RB
                 }
 		;
 
-
 %%
 
 #include "lex.yy.c"
-main (argc, argv)
-int argc;
-char *argv[];
-  {
-     yyin = fopen(argv[1],"r");
-     yyparse();
-     // printGV(prog, NULL);
-     
-     initializeSymbolTable();
-     
-     semanticAnalysis(prog);
-     
-     symbolTableEnd();
-     if (!g_anyErrorOccur) {
-        printf("Parsing completed. No errors found.\n");
-     }
-  } /* main */
+int main(int argc, char *argv[]) {
+  yyin = fopen(argv[1], "r");
+  yyparse();
+  // printGV(prog, NULL);
 
+  initializeSymbolTable();
 
-int yyerror (mesg)
-char *mesg;
-  {
-  printf("%s\t%d\t%s\t%s\n", "Error found in Line ", linenumber, "next token: ", yytext );
-  exit(1);
+  semanticAnalysis(prog);
+
+  symbolTableEnd();
+  if (!g_anyErrorOccur) {
+    printf("Parsing completed. No errors found.\n");
   }
+} /* main */
+
+int yyerror(char *mesg) {
+  printf("%s\t%d\t%s\t%s\n", "Error found in Line ", linenumber,
+         "next token: ", yytext);
+  exit(1);
+}
+

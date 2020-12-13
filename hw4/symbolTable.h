@@ -3,7 +3,7 @@
 
 #include "header.h"
 // This file is for reference only, you are not required to follow the
-// implementation. //
+// implementation.
 
 // SYMBOL_TABLE_PREINSERT_NAME
 #define SYMBOL_TABLE_INT_NAME "int"
@@ -88,5 +88,8 @@ void removeSymbol(char *symbolName);
 int declaredLocally(char *symbolName);
 void openScope();
 void closeScope();
+
+// additional helper functions
+int isGlobalScope();
 
 #endif
