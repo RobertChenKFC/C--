@@ -248,9 +248,9 @@ DATA_TYPE getBiggerType(DATA_TYPE dataType1, DATA_TYPE dataType2) {
 void processProgramNode(AST_NODE *programNode) {
   for (AST_NODE *child = programNode->child; child;
        child = child->rightSibling) {
-    switch (programNode->nodeType) {
+    switch (child->nodeType) {
       case VARIABLE_DECL_LIST_NODE:
-        for (AST_NODE *declNode = programNode->child; declNode;
+        for (AST_NODE *declNode = child->child; declNode;
              declNode = declNode->rightSibling)
           processDeclarationNode(declNode);
         break;
