@@ -360,7 +360,7 @@ void declareIdList(AST_NODE *declarationNode,
               enterSymbol(id->identifierName, newSymbolAttribute))) {
           char oldTypeStr[MAX_TYPE_STR_LEN], newTypeStr[MAX_TYPE_STR_LEN];
           getTypeString(typeDescriptor, oldTypeStr);
-          getTypeString(typeDescriptor, newTypeStr);
+          getTypeString(newTypeDescriptor, newTypeStr);
           printErrorMsgSpecial((AST_NODE*)oldTypeStr, newTypeStr,
                                TYPEDEF_REDECLARE);
           free(newTypeDescriptor);
@@ -427,7 +427,7 @@ void checkForStmt(AST_NODE *forNode) {
     case STMT_NODE:
       processStmtNode(bodyNode);
       break;
-    case NUL_NODE:
+    case BLOCK_NODE:
       processBlockNode(bodyNode);
       break;
     default:
@@ -1247,7 +1247,8 @@ void processExprNode(AST_NODE *exprNode) {
                     expr->constEvalValue.iValue = !operandIVal;
                     break;
                   case FLOAT_TYPE:
-                    expr->constEvalValue.fValue = !operandFVal;
+                    expr->constEvalValue.iValue = !operandFVal;
+                    exprNode->dataType = INT_TYPE;
                     break;
                   default:
                     // this should not happen
@@ -1276,7 +1277,10 @@ void processConstValueNode(AST_NODE *constValueNode) {}
 void checkReturnStmt(AST_NODE *returnNode) {}
 
 void processBlockNode(AST_NODE *blockNode) {
-  openScope();
+  if (!(blockNode->parent->nodeType == DECLARATION_NODE &&
+        blockNode->parent->semantic_value.declSemanticValue.kind ==
+        FUNCTION_DECL))
+    openScope();
   for (AST_NODE *child = blockNode->child; child; child = child->rightSibling) {
     switch (child->nodeType) {
       case VARIABLE_DECL_LIST_NODE:
