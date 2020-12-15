@@ -97,24 +97,14 @@ typedef enum ErrorMsgKind {
   INVALID_ASSIGNMENT
 } ErrorMsgKind;
 
-void printErrorMsgSpecial(AST_NODE *node1, char *name2,
+void printErrorMsgSpecial(AST_NODE *node, char *name1, char *name2,
                           ErrorMsgKind errorMsgKind) {
   g_anyErrorOccur = 1;
-  printf("Error found in line %d\n", node1->linenumber);
+  printf("Error found in line %d\n", node->linenumber);
   switch(errorMsgKind) {
     case TYPEDEF_REDECLARE: {
-      // TODO: this is not ideal, maybe this should be implemented in another
-      // function
-      char *oldType = (char*)node1, *newType = name2;
       printf(GRN "typedef redefinition with different types ('%s' vs '%s')\n"
-             RST, oldType, newType);
-      break;
-    } case INCOMPATIBLE_ARRAY_DIMENSION: {
-      // TODO: this is not ideal, maybe this should be implemented in another
-      // function
-      char *lhsType = (char*)node1, *rhsType = name2;
-      printf(GRN "incompatible pointer types passing '%s' to parameter of type "
-             "'%s'\n" RST, rhsType, lhsType);
+             RST, name1, name2);
       break;
     } default: {
       printf("Unhandled case in void printErrorMsg(AST_NODE* node, "
@@ -222,6 +212,12 @@ void printErrorMsg(AST_NODE *node, ErrorMsgKind errorMsgKind) {
       // currently skipped
       printf(GRN "assigning to incompatible type\n" RST);
       break;
+    } case INCOMPATIBLE_ARRAY_DIMENSION: {
+      // TODO: this error is not implemented completely since type information
+      // isn't printed, but this error isn't mentioned in Assignment4 and it
+      // requires some effort to get the type of the operand, so it is
+      // currently skipped
+      printf(GRN "passing incompatible pointer type\n" RST);
     } default: {
       printf("Unhandled case in void printErrorMsg(AST_NODE* node, "
              "ERROR_MSG_KIND* errorMsgKind)\n");
@@ -361,7 +357,7 @@ void declareIdList(AST_NODE *declarationNode,
           char oldTypeStr[MAX_TYPE_STR_LEN], newTypeStr[MAX_TYPE_STR_LEN];
           getTypeString(typeDescriptor, oldTypeStr);
           getTypeString(newTypeDescriptor, newTypeStr);
-          printErrorMsgSpecial((AST_NODE*)oldTypeStr, newTypeStr,
+          printErrorMsgSpecial(typeDeclDimList, oldTypeStr, newTypeStr,
                                TYPEDEF_REDECLARE);
           free(newTypeDescriptor);
           free(newSymbolAttribute);
@@ -430,6 +426,8 @@ void checkForStmt(AST_NODE *forNode) {
     case BLOCK_NODE:
       processBlockNode(bodyNode);
       break;
+    case NUL_NODE:
+      break;
     default:
       // this should not happen
       assert(0);
@@ -437,7 +435,6 @@ void checkForStmt(AST_NODE *forNode) {
 }
 
 void checkAssignmentStmt(AST_NODE *assignmentNode) {
-  // TODO: recheck processDeclarationNode WITH_INIT_ID
   AST_NODE *lhs = assignmentNode->child, *rhs = lhs->rightSibling;
   processVariableLValue(lhs);
   if (lhs->dataType == INT_PTR_TYPE || lhs->dataType == FLOAT_PTR_TYPE) {
@@ -484,6 +481,16 @@ void checkAssignmentStmt(AST_NODE *assignmentNode) {
       if (lhs->dataType == INT_TYPE && rhs->dataType == FLOAT_TYPE)
         printWarningMsg(lhs, FLOAT_TO_INT);
       break;
+    case STMT_NODE:
+      switch (rhs->semantic_value.stmtSemanticValue.kind) {
+        case FUNCTION_CALL_STMT:
+          checkFunctionCall(rhs);
+          break;
+        default:
+          // this should not happen
+          assert(0);
+      }
+      break;
     default:
       // this should not happen
       assert(0);
@@ -512,21 +519,30 @@ void checkFunctionCall(AST_NODE *functionCallNode) {
     printErrorMsg(functionNameNode, NOT_FUNCTION_NAME);
     return;
   }
+  FunctionSignature *functionSignature =
+    entry->attribute->attr.functionSignature;
 
-  AST_NODE *exprNode;
-  Parameter *param;
-  for (exprNode = functionNameNode->rightSibling,
-       param = entry->attribute->attr.functionSignature->parameterList;
-       exprNode && param;
-       exprNode = exprNode->rightSibling, param = param->next);
-  if (exprNode) {
+  functionCallNode->dataType = functionSignature->returnType;
+
+  int numParams = 0;
+  for (AST_NODE *exprNode = functionNameNode->rightSibling; exprNode;
+       exprNode = exprNode->rightSibling) {
+    if (exprNode->nodeType != NUL_NODE)
+      ++numParams;
+  }
+  if (numParams > functionSignature->parametersCount) {
     printErrorMsg(functionNameNode, TOO_MANY_ARGUMENTS);
     return;
-  } else if (param) {
+  } else if (numParams < functionSignature->parametersCount) {
     printErrorMsg(functionNameNode, TOO_FEW_ARGUMENTS);
     return;
   }
 
+  if (numParams == 0)
+    return;
+
+  AST_NODE *exprNode;
+  Parameter *param;
   for (exprNode = functionNameNode->rightSibling,
        param = entry->attribute->attr.functionSignature->parameterList;
        exprNode && param;
@@ -606,6 +622,21 @@ void checkFunctionCall(AST_NODE *functionCallNode) {
                 param->type->properties.dataType == INT_TYPE)
               printWarningMsg(exprNode, FLOAT_TO_INT);
             break;
+          }
+          // passed parameter is a function call (definitely a scalar)
+          case STMT_NODE: {
+            switch (exprNode->semantic_value.stmtSemanticValue.kind) {
+              case FUNCTION_CALL_STMT:
+                checkFunctionCall(exprNode);
+                if (exprNode->dataType == FLOAT_TYPE &&
+                    param->type->properties.dataType == INT_TYPE)
+                  printWarningMsg(exprNode, FLOAT_TO_INT);
+                break;
+              default:
+                // this should not happen
+                assert(0);
+            }
+            break;
           } default: {
             // this should not happen
             break;
@@ -674,12 +705,30 @@ void checkFunctionCall(AST_NODE *functionCallNode) {
             break;
           }
           // passed parameter is a constant value (definitely a scalar type)
-          case CONST_VALUE_NODE:
-          // passed parameter is an expression (definitely a scalar type)
-          case EXPR_NODE: {
+          case CONST_VALUE_NODE: {
             printErrorMsg(exprNode, PASS_SCALAR_TO_ARRAY);
             goto NEXT_PARAM;
-          } default: {
+          }
+          // passed parameter is an expression (definitely a scalar type)
+          case EXPR_NODE: {
+            processExprNode(exprNode);
+            printErrorMsg(exprNode, PASS_SCALAR_TO_ARRAY);
+            goto NEXT_PARAM;
+          }
+          // passed parameter is a function call (definitely a scalar type)
+          case STMT_NODE: {
+            switch (exprNode->semantic_value.stmtSemanticValue.kind) {
+              case FUNCTION_CALL_STMT:
+                checkFunctionCall(exprNode);
+                break;
+              default:
+                // this should not happen
+                assert(0);
+            }
+            printErrorMsg(exprNode, PASS_SCALAR_TO_ARRAY);
+            goto NEXT_PARAM;
+          }
+          default: {
             // this should not happen
             assert(0);
           }
@@ -833,6 +882,11 @@ void processExprNode(AST_NODE *exprNode) {
                     }
                   }
                   break;
+                // right operand is a function call, then the whole expression
+                // is not constant
+                case STMT_NODE:
+                  expr->isConstEval = 0;
+                  break;
                 default:
                   // this should not happen
                   assert(0);
@@ -864,7 +918,7 @@ void processExprNode(AST_NODE *exprNode) {
                     expr->isConstEval = 0;
                     break;
                   // right operand is a constant value, then the whole
-                  // expression is not constant
+                  // expression is a constant expression
                   case CONST_VALUE_NODE:
                     expr->isConstEval = 1;
                     switch (rightOperandNode->semantic_value.const1->
@@ -901,6 +955,11 @@ void processExprNode(AST_NODE *exprNode) {
                       }
                     }
                     break;
+                  // right operand is a function call, then the whole expression
+                  // is not constant
+                  case STMT_NODE:
+                    expr->isConstEval = 0;
+                    break;
                   default:
                     // this should not happen
                     assert(0);
@@ -908,6 +967,11 @@ void processExprNode(AST_NODE *exprNode) {
               } else {
                 expr->isConstEval = 0;
               }
+              break;
+            // left operand is a function call, then the whole expression is not
+            // constant
+            case STMT_NODE:
+              expr->isConstEval = 0;
               break;
             default:
               // this should not happen
@@ -1205,6 +1269,10 @@ void processExprNode(AST_NODE *exprNode) {
                   exprNode->dataType = ERROR_TYPE;
               }
               break;
+            case STMT_NODE:
+              expr->isConstEval = 0;
+              exprNode->dataType = operandNode->dataType;
+              break;
             default:
               // this should not happen
               assert(0);
@@ -1259,6 +1327,16 @@ void processExprNode(AST_NODE *exprNode) {
           }
           break;
         }
+      }
+      break;
+    } case STMT_NODE: {
+      switch (exprNode->nodeType) {
+        case FUNCTION_CALL_STMT:
+          checkFunctionCall(exprNode);
+          break;
+        default:
+          // this should not happen
+          assert(0);
       }
       break;
     } default: {
@@ -1411,7 +1489,8 @@ void processDeclDimList(AST_NODE *idNode,
       ArrayProperties *newArrayProperties =
         &newTypeDescriptor->properties.arrayProperties;
       int dimIndex = 0;
-      for (AST_NODE *dimNode = idNode->child; dimNode; dimNode = dimNode) {
+      for (AST_NODE *dimNode = idNode->child; dimNode;
+           dimNode = dimNode->rightSibling) {
         switch (dimNode->nodeType) {
           case EXPR_NODE:
           case CONST_VALUE_NODE: {
@@ -1462,14 +1541,28 @@ void processDeclDimList(AST_NODE *idNode,
           break;
       }
       AST_NODE *initExpr = idNode->child;
-      getExprOrConstValue(initExpr, NULL, NULL);
-      if (isGlobalScope() &&
-          !initExpr->semantic_value.exprSemanticValue.isConstEval) {
-        printErrorMsg(idNode, NONCONST_GLOBAL_DECLARE);
-        break;
+      processExprNode(initExpr);
+      if (isGlobalScope()) {
+        switch (initExpr->nodeType) {
+          case IDENTIFIER_NODE:
+            printErrorMsg(idNode, NONCONST_GLOBAL_DECLARE);
+            return;
+          case CONST_VALUE_NODE:
+            break;
+          case EXPR_NODE:
+            if (!initExpr->semantic_value.exprSemanticValue.isConstEval) {
+              printErrorMsg(idNode, NONCONST_GLOBAL_DECLARE);
+              return;
+            }
+            break;
+          case STMT_NODE:
+            printErrorMsg(idNode, NONCONST_GLOBAL_DECLARE);
+            return;
+          default:
+            // this should not happen
+            assert(0);
+        }
       }
-      processVariableLValue(idNode);
-      processVariableRValue(initExpr);
       DATA_TYPE lhsType = typeDescriptor->properties.dataType,
                 rhsType = initExpr->dataType;
       if (lhsType == INT_PTR_TYPE || lhsType == FLOAT_PTR_TYPE) {
@@ -1578,83 +1671,4 @@ void printWarningMsg(AST_NODE *node, WarningMsgKind warningMsgType) {
 }
 
 /* ======= end of helper functions definitions ======= */
-
-// This function can be ignored; it was implemented before realising that
-// processVariableLValue and processVariableRValue are exactly what is needed.
-// This function is kept here to clarify what has to be implemented in those
-// two respective functions.
-void checkLHSandRHS(AST_NODE *lhs, AST_NODE *rhs) {
-  IdentifierSemanticValue *lhsId = &lhs->semantic_value.identifierSemanticValue;
-  SymbolTableEntry *entry = lhsId->symbolTableEntry;
-  if (!entry) {
-    printErrorMsg(lhs, SYMBOL_UNDECLARED);
-    return;
-  } else if (entry->attribute->attributeKind == TYPE_ATTRIBUTE) {
-    // TODO: error message is not yet implemented because it isn't mentioned in
-    // Assignment4 and there doesn't seem to be a clang equivalent
-    printErrorMsg(lhs, IS_TYPE_NOT_VARIABLE);
-    return;
-  } else if (entry->attribute->attributeKind == FUNCTION_SIGNATURE) {
-    printErrorMsg(lhs, IS_FUNCTION_NOT_VARIABLE);
-    return;
-  }
-
-  switch (lhsId->kind) {
-    case NORMAL_ID:
-      switch (rhs->nodeType) {
-        case IDENTIFIER_NODE: {
-          IdentifierSemanticValue *rhsId =
-            &rhs->semantic_value.identifierSemanticValue;
-          SymbolTableEntry *entry = rhsId->symbolTableEntry;
-          if (!entry) {
-            printErrorMsg(rhs, SYMBOL_UNDECLARED);
-            return;
-          } else if (entry->attribute->attributeKind == TYPE_ATTRIBUTE) {
-            printErrorMsg(rhs, IS_TYPE_NOT_VARIABLE);
-            return;
-          } else if (entry->attribute->attributeKind == FUNCTION_SIGNATURE) {
-            printErrorMsg(rhs, IS_FUNCTION_NOT_VARIABLE);
-            break;
-          }
-          TypeDescriptor *rhsType = entry->attribute->attr.typeDescriptor;
-          int numDim = 0;
-          for (AST_NODE *dim = rhs->child; dim; dim = dim->rightSibling)
-            ++numDim;
-          switch (rhsType->kind) {
-            case SCALAR_TYPE_DESCRIPTOR: {
-              if (numDim > 0) {
-                printErrorMsg(rhs, NOT_ARRAY);
-                return;
-              }
-              break;
-            } case ARRAY_TYPE_DESCRIPTOR: {
-              ArrayProperties *arrayProperties =
-                &rhsType->properties.arrayProperties;
-              if (numDim > arrayProperties->dimension) {
-                printErrorMsg(rhs, NOT_ARRAY);
-                return;
-              } else if (numDim < arrayProperties->dimension) {
-
-              }
-              break;
-            }
-          }
-          break;
-        } case CONST_VALUE_NODE:
-          break;
-        case EXPR_NODE:
-          break;
-        default:
-          // this should not happen
-          assert(0);
-      }
-      break;
-    case ARRAY_ID:
-      printErrorMsg(lhs, NOT_ASSIGNABLE);
-      break;
-    case WITH_INIT_ID:
-      // this should not happen
-      assert(0);
-  }
-}
 
