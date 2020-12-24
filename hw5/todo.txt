@@ -1,0 +1,130 @@
+Todo list (mentioned in Assignment5_2020.pdf):
+- Assignment statement
+  + Need to add a field (.place in the slides) to the AST node to record the
+    register number that stores the outcome of an expression. Also need to add
+    a field to store the offset in case the outcome of the register has to be
+    spilled.
+  + Need to add functions to support allocating registers (getreg in the slides)
+    and recycling registers (freereg in the slides).
+    * If we adopt the calling convention (suggested), then we will have to
+      separate allocating caller saved registers (most likely for parameters and
+      local variables) and callee saved registers (most likely for temporaries).
+      One possible solution is to add an additional argument to getreg
+    * We have to consider what to do when there are no more registers that can be
+      allocated. One possible solution is to spill one of the allocated registers,
+      but then the register numbers cannot be used directly and have to be
+      checked if they were spilled before using. Also, the AR size will have to
+      be determined after code generation is done on the entire function body.
+      See Class11-2020RV.ppt for more detail.
+  + Generate sw/fsw based on the datatype of the AST, and perform type
+    conversion if needed.
+  + Need to add fields to (possibly) the SymbolTableEntry to contain the offset
+    of a variable and whether it is a global variable or not.
+
+- Arithemtic expressions
+  + As in hw4, an expression can be of the 4 types: IDENTIFIER_NODE,
+    CONST_VALUE_NODE, EXPR_NODE or STMT_NODE (function call). We will need
+    to handle these cases separately:
+    * IDENTIFIER_NODE: retreive the offset using the symbol table, calculate the
+      address if it is an ARRAY_ID, and use lw/flw according to its type.
+      We can either skip implementing multidimensional arrays for now or
+      implement it now.
+    * CONST_VALUE_NODE: generate the appropriate data section with proper
+      alignment (for float and string type), then use li (for int) / lui and flw
+      (for float) / la (for string) to load the constant into register. Since
+      labels may be used, we need to come up with a convention for the label
+      names of each type of constant (if we use .LC<constant_no> for the
+      label, we need to make constant_no start at 2 to avoid label conflicts
+      with main.S).
+    * EXPR_NODE: generate instruction to perform type conversion if needed, then
+      generate the corresponding instruction to perform the unary/binary
+      operation.
+    * STMT_NODE: see procedure calls for more detail.
+    It may be beneficial to separate these 4 into different functions.
+  + We can either skip processing logical expressions for now or implement short
+    circuit evaluation now.
+
+- Control statements: while, if-then-else
+  + Generate instructions for the condition and the body for the control
+    statements.
+  + Need to add a global variable (label_no in the slides) to be able to
+    get a unique label number for each variable.
+  + Need to come up with a convention for the label names of each control
+    structure, including:
+    * WHILE_STMT: the test label and the exit label.
+    * IF_STMT: the else label and the exit label.
+
+- Parameterless procedure calls
+  + We can either skip parameter passing for now or implement it now. To
+    implement parameter passing, use mv/fmv.s to move the parameters to the
+    appropriate parameter registers, and push the rest of the parameters onto
+    the stack in reverse order.
+  + Need to determine a convention for function labels (typically for a function
+    with name <name>, _<name> is used as the label. However, special care has
+    to be taken to avoid label conflicts with the labels defined in main.S).
+  + Call the function using call.
+
+- Read and Write I/O calls
+  + For read/fread, directly call the function _read_int/_read_float.
+  + For write, determine the parameter type, then call _write_int/_write_float/
+    _write_string accordingly.
+
+Todo list (not mentioned in Assignment5_2020.pdf):
+- Variable declarations:
+  + For global variables, need to come up with a convention for label names of
+    each global variable.
+  + For parameters, need to add a global variable to store the offset of each
+    parameter. The offset should start from 16 for a new function, and each
+    parameter should add 4 to the offset (the i-th parameter is at fp+16+i*4).
+  + For local variables, need to add a global variable to store the offset
+    of each local variable (can use the same global variable as the parameter
+    offset). The offset should start from -4, and each local variable should
+    subtract its size from the offset.
+  + We can either skip implementing variable initialization or implement it
+    now. Variable initialization should be pretty easy for global variables
+    and straightforward enough for local variables.
+
+- Function declarations:
+  + Need to add code to generate canned sequence: common instruction sequence
+    for function start and end (originally, the teacher mentioned that the code
+    to generate canned sequence would be provided, but I can't seem to find it).
+  + Need to add a global variable keep track of the current AR size, and update
+    the AR size according to the number of parameters and spilled temporaries.
+  + Need to come up with a convention for the labels of the AR size of each
+    function.
+
+Todo list (extra credits mentioned in Assignment5_2020.pdf):
+- Minimize register saving/restoring:
+  + Adopt the calling convention (if not already implemented).
+  + Need to identify if a function is a leaf procedure and only uses floating
+    point registers.
+  + Need to check if a register is live across a function call.
+
+- Use register tracking:
+  + Need to associate every variable reference with a register number.
+  + Need to be careful with global variables used in an expression, as the
+    associated register can spilled, then the global variable can be modified by
+    a function call, thus restoring from memory may be incorrect. This can be
+    solved by always associating variable references in expressions with a
+    temporary, or not associating global variables with a register.
+
+- Use value numbering:
+  + Register tracking should first be implemented, then the numbering of
+    other expressions can be inferred from the register allocated to the
+    variables in the expression.
+
+Notes:
+- We need to determine whether to write the code generation as a separate pass,
+  both of which has its advantage:
+  + If we choose to combine code generation and semantic analysis as one pass,
+    then we don't have to worry about the symbol table. However, the code will
+    be very messy, and we will have to make sure that no code is generated
+    when the semantic analysis returns with an error.
+  + If we choose to write code generation as a separate pass, then the code
+    will be easier to maintain and merge, and we can generate code only when
+    there are no semantic errors detected. However, we will have to come up
+    with a solution for regenerating the symbol table after the entries have
+    been deleted in semantic analysis.
+- The ".align n" directive advances the location counter until the lower n bits
+  are all zeros. For instance, ".align 3" makes the location counter a multiple
+  of 2 ^ 3 = 8.
