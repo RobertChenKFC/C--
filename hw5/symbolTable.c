@@ -25,6 +25,10 @@ SymbolTableEntry* newSymbolTableEntry(int nestingLevel)
     symbolTableEntry->attribute = NULL;
     symbolTableEntry->name = NULL;
     symbolTableEntry->nestingLevel = nestingLevel;
+
+    // for code generation
+    symbolTableEntry->reg.registerNumber = NUL_REG;
+
     return symbolTableEntry;
 }
 

@@ -3,7 +3,6 @@
 
 #include "header.h"
 
-
 //SYMBOL_TABLE_PREINSERT_NAME
 #define SYMBOL_TABLE_INT_NAME "int"
 #define SYMBOL_TABLE_FLOAT_NAME "float"
@@ -82,6 +81,8 @@ typedef struct SymbolTableEntry
     int nestingLevel;
 
     int offset;
+    /* TODO: the fields of this structure has changed */
+    Reg reg;
 } SymbolTableEntry;
 
 typedef struct SymbolTable

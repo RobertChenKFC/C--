@@ -1,6 +1,15 @@
 #ifndef __HEADER_H__
 #define __HEADER_H__
 
+#include <stdbool.h>
+
+typedef struct {
+  bool isFloat;
+  bool isCallerSaved;
+  int registerNumber;
+} Reg;
+#define NUL_REG -1
+
 #define MAX_ARRAY_DIMENSION 10
 
 typedef enum DATA_TYPE
@@ -147,6 +156,7 @@ typedef struct CON_Type{
 		const_u;
 } CON_Type;
 
+#define NUL_LABEL -1
 
 struct AST_NODE {
 	struct AST_NODE *child;
@@ -163,8 +173,13 @@ struct AST_NODE {
         EXPRSemanticValue exprSemanticValue;
 		CON_Type *const1;
 	} semantic_value;
+
   // Register number
-  int registerNumber;
+  /* TODO: the fields of this structure has changed */
+  Reg reg;
+  int parentLabelNo;
+  bool shortOnFalse;
+  bool isBooleanExpr;
   // Offset relative to fp
   int offset;
 };

@@ -9,6 +9,8 @@
 #include "symbolTable.h"
 int linenumber = 1;
 AST_NODE *prog;
+int yylex();
+int yyerror(char *mesg);
 
 extern int g_anyErrorOccur;
 
