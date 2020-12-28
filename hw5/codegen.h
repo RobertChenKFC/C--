@@ -12,6 +12,7 @@ Reg RegGet(bool isFloat, bool isCallerSaved, int offset);
 void RegFree(Reg reg);
 /* TODO: the API of this function has been modified */
 Reg RegRestore(Reg oldReg, int offset);
+void RegRestoreRA();
 /* =========== register manager ========== */
 
 /* =========== label convention ========== */

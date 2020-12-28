@@ -3,12 +3,14 @@
 
 #include <stdbool.h>
 
+/* ========== register manager ========== */
 typedef struct {
   bool isFloat;
   bool isCallerSaved;
   int registerNumber;
 } Reg;
 #define NUL_REG -1
+/* ========== register manager ========== */
 
 #define MAX_ARRAY_DIMENSION 10
 
