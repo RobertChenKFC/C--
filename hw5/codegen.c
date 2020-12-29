@@ -6,6 +6,7 @@
 
 /* ========== global variables ========== */
 
+bool raSpilled = false;
 int constantCounter = 0;
 int booleanCounter = 0;
 int whileCounter = 0;
@@ -349,6 +350,9 @@ void RegReset() {
     ListPush(usedFloatCalleeSavedRegisters, floatCalleeSavedRegisters[i]);
     floatCalleeSavedRegisterOffsets[i] = PLACEHOLDER_OFFSET;
   }
+
+  // return address register
+  raSpilled = false;
 }
 
 /* TODO: remember to call this function every time a function call is
@@ -381,6 +385,9 @@ void RegClear() {
       floatCallerSavedRegisterOffsets[registerNumber] = NUL_OFFSET;
     }
   }
+
+  // return address register
+  raSpilled = true;
 }
 
 int RegGetImpl(bool isFloat, int *registerOffsets,
@@ -548,6 +555,13 @@ Reg RegRestore(Reg oldReg, int offset) {
     }
   }
   return newReg;
+}
+
+void RegRestoreRA() {
+  if (raSpilled) {
+    fprintf(outputFile, "ld ra, 8(fp)\n");
+    raSpilled = false;
+  }
 }
 
 /* ========== register manager ========== */
@@ -770,7 +784,17 @@ void CodegenVariableRef(AST_NODE *varRef) {
         }
         RegFree(dimNode->reg);
       }
-      fprintf(outputFile, "slli x%d, 2\n", vpReg.registerNumber);
+      switch (arrayProperties->elementType) {
+        case INT_TYPE:
+          fprintf(outputFile, "slli x%d, 3\n", vpReg.registerNumber);
+          break;
+        case FLOAT_TYPE:
+          fprintf(outputFile, "slli x%d, 2\n", vpReg.registerNumber);
+          break;
+        default:
+          // this should not happen
+          assert(0);
+      }
 
       // add base address to variable part and load
       if (entry->nestingLevel == 0) {

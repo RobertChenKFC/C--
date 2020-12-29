@@ -4,13 +4,14 @@
 #include "header.h"
 #include <stdbool.h>
 
-/* TODO: the Reg structure has been moved to header.h */
-
 /* =========== register manager ========== */
+extern bool raSpilled;
 void RegInit();
+void RegEnd();
+void RegReset();
+void RegClear();
 Reg RegGet(bool isFloat, bool isCallerSaved, int offset);
 void RegFree(Reg reg);
-/* TODO: the API of this function has been modified */
 Reg RegRestore(Reg oldReg, int offset);
 void RegRestoreRA();
 /* =========== register manager ========== */
@@ -59,11 +60,9 @@ void CodegenReadFunction(AST_NODE *readFunctionCall);
 void CodegenWriteFunction(AST_NODE *writeFunctionCall);
 void CodegenReturnStmt(AST_NODE *returnStmt);
 /* Expression */
-/* TODO: the name of this function has changed (originally CodegenExpr) */
 void CodegenExprRelated(AST_NODE *exprRelated);
 void CodegenVariableRef(AST_NODE *varRef);
 void CodegenConstValue(AST_NODE *constValue);
-/* TODO: more functions has been added for convenience */
 void CodegenExpr(AST_NODE *exprNode);
 void CodegenUnaryBooleanExpr(AST_NODE *exprNode);
 void CodegenUnaryArithmeticExpr(AST_NODE *exprNode);
