@@ -6,7 +6,6 @@
 
 /* ========== global variables ========== */
 
-bool raSpilled = false;
 int constantCounter = 0;
 int booleanCounter = 0;
 int whileCounter = 0;
@@ -210,9 +209,9 @@ void TmpOffsetReset() {
 
 int TmpOffsetGetImpl(Vector *freeTmpOffsets, int size) {
   if (VectorSize(freeTmpOffsets) == 0) {
-    VectorPushback(freeTmpOffsets, localVariableOffset);
     localVariableOffset -= size;
     arSize += size;
+    VectorPushback(freeTmpOffsets, localVariableOffset);
   }
   return VectorPopback(freeTmpOffsets);
 }
@@ -319,6 +318,10 @@ void RegReset() {
   // is dynamically assigned and recorded so that the function epilogue can
   // remember to restore it.
 
+  // local variable offset and AR size
+  localVariableOffset = 0;
+  arSize = 0;
+
   // integer caller saved registers
   ListClear(freeIntCallerSavedRegisters);
   ListClear(usedIntCallerSavedRegisters);
@@ -350,9 +353,6 @@ void RegReset() {
     ListPush(usedFloatCalleeSavedRegisters, floatCalleeSavedRegisters[i]);
     floatCalleeSavedRegisterOffsets[i] = PLACEHOLDER_OFFSET;
   }
-
-  // return address register
-  raSpilled = false;
 }
 
 /* TODO: remember to call this function every time a function call is
@@ -385,9 +385,6 @@ void RegClear() {
       floatCallerSavedRegisterOffsets[registerNumber] = NUL_OFFSET;
     }
   }
-
-  // return address register
-  raSpilled = true;
 }
 
 int RegGetImpl(bool isFloat, int *registerOffsets,
@@ -400,11 +397,6 @@ int RegGetImpl(bool isFloat, int *registerOffsets,
     if (spillOffset == PLACEHOLDER_OFFSET) {
       // spilling a callee saved register for the first time, offset is recorded
       // for function epilogue to restore
-      spillOffset = localVariableOffset;
-      assert(savedRegisters);
-      QueuePush(savedRegisters, spillRegister);
-      assert(savedRegisterOffsets);
-      QueuePush(savedRegisterOffsets, spillOffset);
       if (isFloat) {
         localVariableOffset -= 4;
         arSize += 4;
@@ -412,6 +404,11 @@ int RegGetImpl(bool isFloat, int *registerOffsets,
         localVariableOffset -= 8;
         arSize += 8;
       }
+      spillOffset = localVariableOffset;
+      assert(savedRegisters);
+      QueuePush(savedRegisters, spillRegister);
+      assert(savedRegisterOffsets);
+      QueuePush(savedRegisterOffsets, spillOffset);
     }
     if (spillOffset != NUL_OFFSET) {
       // NUL_OFFSET is set by RegClear, which spills all caller saved registers
@@ -558,10 +555,7 @@ Reg RegRestore(Reg oldReg, int offset) {
 }
 
 void RegRestoreRA() {
-  if (raSpilled) {
-    fprintf(outputFile, "ld ra, 8(fp)\n");
-    raSpilled = false;
-  }
+  fprintf(outputFile, "ld ra, 8(fp)\n");
 }
 
 /* ========== register manager ========== */
@@ -610,8 +604,8 @@ void CodegenFunctionPrologue(AST_NODE *functionNode) {
     semantic_value.identifierSemanticValue.identifierName;
   fprintf(outputFile, ".text\n");
   fprintf(outputFile, "_FUNCTION_%s\n", functionName);
-  fprintf(outputFile, "sd ra, 8(sp)\n");
-  fprintf(outputFile, "sd fp, 0(sp)\n");
+  fprintf(outputFile, "sd ra, 0(sp)\n");
+  fprintf(outputFile, "sd fp, -8(sp)\n");
   fprintf(outputFile, "addi fp, sp, -8\n");
   fprintf(outputFile, "addi sp, sp, -16\n");
   fprintf(outputFile, "la ra, _FRAME_SIZE_%s\n", functionName);

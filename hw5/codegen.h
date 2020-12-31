@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 /* =========== register manager ========== */
-extern bool raSpilled;
 void RegInit();
 void RegEnd();
 void RegReset();
