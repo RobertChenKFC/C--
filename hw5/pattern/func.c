@@ -2,15 +2,17 @@ int k;
 
 
 void try() {
-    if (k < 10) {
+    /*
+    if (k < 0) {
         write(k);
         write("\n");
         k = k + 1;
         try();
     }
+    */
 }
 
-int main() {
+int MAIN() {
     k = 0;
     try();
     return 0;

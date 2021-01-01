@@ -12,7 +12,6 @@ int booleanCounter = 0;
 int whileCounter = 0;
 int forCounter = 0;
 int ifCounter = 0;
-int localVariableOffset = 0;
 int arSize = 0;
 FILE *outputFile;
 
@@ -210,8 +209,7 @@ void TmpOffsetReset() {
 
 int TmpOffsetGetImpl(Vector *freeTmpOffsets, int size) {
   if (VectorSize(freeTmpOffsets) == 0) {
-    VectorPushback(freeTmpOffsets, localVariableOffset);
-    localVariableOffset -= size;
+    VectorPushback(freeTmpOffsets, -arSize);
     arSize += size;
   }
   return VectorPopback(freeTmpOffsets);
@@ -303,7 +301,6 @@ void RegEnd() {
 
 /* TODO: remember to call this function every time a new function is declared */
 void RegReset() {
-  localVariableOffset = 0;
   arSize = 0;
 
   // integer caller saved registers
@@ -776,18 +773,27 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
                   varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
           } case FLOAT_TYPE: {
-            Reg baseReg = RegGet(false, true, NUL_OFFSET);
-            varRef->offset = TmpOffsetGet(true);
-            varRef->reg = RegGet(true, true, varRef->offset);
-            fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
-                baseReg.registerNumber, id->identifierName);
-            fprintf(outputFile, "add x%d, x%d, x%d\n",
-                baseReg.registerNumber, baseReg.registerNumber,
-                vpReg.registerNumber);
-            if (!isLValue)
+            if (isLValue) {
+              varRef->offset = TmpOffsetGet(false);
+              varRef->reg = RegGet(false, true, varRef->offset);
+              fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
+                      varRef->reg.registerNumber, id->identifierName);
+              fprintf(outputFile, "add x%d, x%d, x%d\n",
+                      varRef->reg.registerNumber, varRef->reg.registerNumber,
+                      vpReg.registerNumber);
+            } else {
+              Reg baseReg = RegGet(false, true, NUL_OFFSET);
+              varRef->offset = TmpOffsetGet(true);
+              varRef->reg = RegGet(true, true, varRef->offset);
+              fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
+                  baseReg.registerNumber, id->identifierName);
+              fprintf(outputFile, "add x%d, x%d, x%d\n",
+                  baseReg.registerNumber, baseReg.registerNumber,
+                  vpReg.registerNumber);
               fprintf(outputFile, "flw f%d, 0(x%d)\n",
                   varRef->reg.registerNumber, baseReg.registerNumber);
-            RegFree(baseReg);
+              RegFree(baseReg);
+            }
             break;
           } default: {
             // this should not happen
@@ -824,18 +830,25 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
                   varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
           } case FLOAT_TYPE: {
-            Reg baseReg = RegGet(false, true, NUL_OFFSET);
-            varRef->offset = TmpOffsetGet(true);
-            varRef->reg = RegGet(true, true, varRef->offset);
-            fprintf(outputFile, "mv x%d, x%d\n",
-                baseReg.registerNumber, entry->reg.registerNumber);
-            fprintf(outputFile, "add x%d, x%d, x%d\n",
-                baseReg.registerNumber, baseReg.registerNumber,
-                vpReg.registerNumber);
-            if (!isLValue)
+            if (isLValue) {
+              varRef->offset = TmpOffsetGet(false);
+              varRef->reg = RegGet(false, true, varRef->offset);
+              fprintf(outputFile, "add x%d, x%d, x%d\n",
+                      varRef->reg.registerNumber, entry->reg.registerNumber,
+                      vpReg.registerNumber);
+            } else {
+              Reg baseReg = RegGet(false, true, NUL_OFFSET);
+              varRef->offset = TmpOffsetGet(true);
+              varRef->reg = RegGet(true, true, varRef->offset);
+              fprintf(outputFile, "mv x%d, x%d\n",
+                  baseReg.registerNumber, entry->reg.registerNumber);
+              fprintf(outputFile, "add x%d, x%d, x%d\n",
+                  baseReg.registerNumber, baseReg.registerNumber,
+                  vpReg.registerNumber);
               fprintf(outputFile, "flw f%d, 0(x%d)\n",
                   varRef->reg.registerNumber, baseReg.registerNumber);
-            RegFree(baseReg);
+              RegFree(baseReg);
+            }
             break;
           } default: {
             // this should be happen
@@ -865,7 +878,7 @@ void CodegenConstValue(AST_NODE *constValue) {
       constValue->offset = TmpOffsetGet(false);
       constValue->reg = RegGet(false, true, constValue->offset);
       fprintf(outputFile, ".data\n");
-      fprintf(outputFile, "_CONSTANT_%d: .word %d\n",
+      fprintf(outputFile, "_CONSTANT_%d: .dword %d\n",
           constantLabelNo, val->const_u.intval);
       // TODO: verify that .align 2 (4 byte alignment) is correct; for some
       //       reason, the example code writes .align 3
@@ -998,10 +1011,12 @@ void CodegenUnaryArithmeticExpr(AST_NODE *exprNode) {
   switch (expr->op.unaryOp) {
     case UNARY_OP_POSITIVE:
       assert(exprNode->child);
+      CodegenExprRelated(exprNode->child);
       exprNode->reg = exprNode->child->reg;
       break;
     case UNARY_OP_NEGATIVE:
       assert(exprNode->child);
+      CodegenExprRelated(exprNode->child);
       if (exprNode->child->reg.isCallerSaved) {
         RegFree(exprNode->child->reg);
         TmpOffsetFree(exprNode->child->reg.isFloat,
@@ -1158,7 +1173,7 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
             exprNode->reg.registerNumber,
             leftExprNode->reg.registerNumber,
             rightExprNode->reg.registerNumber);
-        fprintf(outputFile, "snez x%d, x%d\n",
+        fprintf(outputFile, "seqz x%d, x%d\n",
             exprNode->reg.registerNumber, exprNode->reg.registerNumber);
       } else {
         // left and right operands are int, and parent is a short circuit
@@ -1209,7 +1224,7 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
             exprNode->reg.registerNumber,
             leftExprNode->reg.registerNumber,
             rightExprNode->reg.registerNumber);
-        fprintf(outputFile, "seqz x%d, x%d\n",
+        fprintf(outputFile, "snez x%d, x%d\n",
             exprNode->reg.registerNumber, exprNode->reg.registerNumber);
       } else {
         // left and right operands are int, and parent is a short circuit
@@ -1520,7 +1535,7 @@ void CodegenBinaryArithmeticExpr(AST_NODE *exprNode) {
 
   switch (expr->op.binaryOp) {
     case BINARY_OP_ADD:
-      if (leftExprNode->reg.isFloat)
+      if (!leftExprNode->reg.isFloat)
         fprintf(outputFile, "addw x%d, x%d, x%d\n",
             exprNode->reg.registerNumber,
             leftExprNode->reg.registerNumber, rightExprNode->reg.registerNumber);
@@ -1530,7 +1545,7 @@ void CodegenBinaryArithmeticExpr(AST_NODE *exprNode) {
             leftExprNode->reg.registerNumber, rightExprNode->reg.registerNumber);
       break;
     case BINARY_OP_SUB:
-      if (leftExprNode->reg.isFloat)
+      if (!leftExprNode->reg.isFloat)
         fprintf(outputFile, "subw x%d, x%d, x%d\n",
             exprNode->reg.registerNumber,
             leftExprNode->reg.registerNumber, rightExprNode->reg.registerNumber);
@@ -1540,7 +1555,7 @@ void CodegenBinaryArithmeticExpr(AST_NODE *exprNode) {
             leftExprNode->reg.registerNumber, rightExprNode->reg.registerNumber);
       break;
     case BINARY_OP_MUL:
-      if (leftExprNode->reg.isFloat)
+      if (!leftExprNode->reg.isFloat)
         fprintf(outputFile, "mulw x%d, x%d, x%d\n",
             exprNode->reg.registerNumber,
             leftExprNode->reg.registerNumber, rightExprNode->reg.registerNumber);
@@ -1550,7 +1565,7 @@ void CodegenBinaryArithmeticExpr(AST_NODE *exprNode) {
             leftExprNode->reg.registerNumber, rightExprNode->reg.registerNumber);
       break;
     case BINARY_OP_DIV:
-      if (leftExprNode->reg.isFloat)
+      if (!leftExprNode->reg.isFloat)
         fprintf(outputFile, "divw x%d, x%d, x%d\n",
             exprNode->reg.registerNumber,
             leftExprNode->reg.registerNumber, rightExprNode->reg.registerNumber);
@@ -1694,8 +1709,6 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
          singleVariable = singleVariable->rightSibling) {
       IDENTIFIER_KIND idKind = singleVariable->semantic_value.identifierSemanticValue.kind;
       SymbolTableEntry *singleVariableEntry = singleVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
-      // set symbolTableEntry.offset
-      singleVariableEntry->offset = -arSize; // calculated from fp downto sp
       // modify new arSize
       TypeDescriptor *singleVariableTD = singleVariableEntry->attribute->attr.typeDescriptor;
       int intSize = 8, floatSize = 4;
@@ -1739,7 +1752,9 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
           // this should not happen
           assert(0);
       }
+      // set symbolTableEntry.offset
       arSize += memSize * (isIntType ? intSize : floatSize);
+      singleVariableEntry->offset = -arSize;
       //fprintf(outputFile, "### allocate %d bytes, arSize: %d ###\n", memSize * intSize, arSize);
     }
   }
@@ -2047,8 +2062,13 @@ void CodegenIfStmt(AST_NODE *ifStmt) {
   fprintf(outputFile, "## Codegen: If Stmt ##\n");
   AST_NODE *testNode = ifStmt->child;
   CodegenExprRelated(testNode); 
+  AST_NODE *ifStmtNode = testNode->rightSibling;
+  AST_NODE *elseStmtNode = ifStmtNode->rightSibling;
   if (!testNode->reg.isFloat) { // INT_TYPE
-    fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", testNode->reg.registerNumber, labelNo);
+    if (elseStmtNode->nodeType != NUL_NODE)
+      fprintf(outputFile, "beqz x%d, _ELSE_LABEL_%d\n", testNode->reg.registerNumber, labelNo);
+    else
+      fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", testNode->reg.registerNumber, labelNo);
   }
   else {                        // FLOAT_TYPE
     int offset = TmpOffsetGet(false);
@@ -2059,7 +2079,10 @@ void CodegenIfStmt(AST_NODE *ifStmt) {
     // we use a bit mask 24 (11000 in binary) to check if either bit is set
     fprintf(outputFile, "andi x%d, x%d, 24\n",
         tmpReg.registerNumber, tmpReg.registerNumber);
-    fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", tmpReg.registerNumber, labelNo);
+    if (elseStmtNode->nodeType != NUL_NODE)
+      fprintf(outputFile, "beqz x%d, _ELSE_LABEL_%d\n", testNode->reg.registerNumber, labelNo);
+    else
+      fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", testNode->reg.registerNumber, labelNo);
     RegFree(tmpReg);
     TmpOffsetFree(false, offset);
   }
@@ -2067,9 +2090,7 @@ void CodegenIfStmt(AST_NODE *ifStmt) {
     RegFree(testNode->reg);
     TmpOffsetFree(testNode->reg.isFloat, testNode->offset);
   }
-  AST_NODE *ifStmtNode = testNode->rightSibling;
   CodegenStmtNode(ifStmtNode);
-  AST_NODE *elseStmtNode = ifStmtNode->rightSibling;
   if (elseStmtNode->nodeType != NUL_NODE) {
     fprintf(outputFile, "j _IF_EXIT_%d\n", labelNo);
     fprintf(outputFile, "_ELSE_LABEL_%d:\n", labelNo);

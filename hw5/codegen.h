@@ -31,8 +31,6 @@ extern int ifCounter;
 /* =========== label convention ========== */
 
 /* =========== variable offsets ========== */
-/* local variable and temporary */
-extern int localVariableOffset;
 /* frame size */
 extern int arSize;
 /* =========== variable offsets ========== */
