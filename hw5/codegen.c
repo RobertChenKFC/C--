@@ -1756,8 +1756,6 @@ void CodegenFunctionDeclaration(AST_NODE *functionNode) {
   AST_NODE *blockNode = paramListNode->rightSibling;
   CodegenBlockNode(blockNode);
   
-  AST_NODE *functionId = functionNode->child->rightSibling;
-  char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
   CodegenFunctionEpilogue(functionNode);
 }
 
@@ -1840,9 +1838,24 @@ void CodegenWhileStmt(AST_NODE *whileStmt) {
   fprintf(outputFile, "_WHILE_LABEL_%d:\n", whileCounter);
   AST_NODE *testNode = whileStmt->child;
   CodegenExprRelated(testNode); // TODO: what if testNode is assign_expr ? what if FLOAY_TYPE ?
-  fprintf(outputFile, "beqz x%d, _WHILE_EXIT_%d\n", testNode->reg.registerNumber, whileCounter);
-  RegFree(testNode->reg);
+  if (!testNode->reg.isFloat) { // INT_TYPE
+    fprintf(outputFile, "beqz x%d, _WHILE_EXIT_%d\n", testNode->reg.registerNumber, whileCounter);
+  }
+  else {                        // FLOAT_TYPE
+    int offset = TmpOffsetGet(false);
+    Reg tmpReg = RegGet(false, true, offset); // note that we get a INT_TYPE temporary register
+    fprintf(outputFile, "fclass.s x%d, f%d\n",
+        tmpReg.registerNumber, testNode->reg.registerNumber);
+    // the fclass.s instruction sets bit 3/4 if the float value is -0/+0, thus
+    // we use a bit mask 24 (11000 in binary) to check if either bit is set
+    fprintf(outputFile, "andi x%d, x%d, 24\n",
+        tmpReg.registerNumber, tmpReg.registerNumber);
+    fprintf(outputFile, "beqz x%d, _WHILE_EXIT_%d\n", tmpReg.registerNumber, whileCounter);
+    RegFree(tmpReg);
+    TmpOffsetFree(false, offset);
+  }
   if (testNode->reg.isCallerSaved) {
+    RegFree(testNode->reg);
     TmpOffsetFree(testNode->reg.isFloat, testNode->offset);
   }
   AST_NODE *stmtNode = testNode->rightSibling;
@@ -1861,20 +1874,55 @@ void CodegenForStmt(AST_NODE *forStmt) {
     for (AST_NODE *exprNode = forInitNode->child;
          exprNode;
          exprNode = exprNode->rightSibling) {
-      CodegenExprRelated(exprNode); // should be ASSIGN_STMT
+      CodegenExprRelated(exprNode);
+      if (exprNode->reg.isCallerSaved) {
+        RegFree(exprNode->reg);
+        TmpOffsetFree(exprNode->reg.isFloat, exprNode->offset);
+      }
     }
   }
   fprintf(outputFile, "_FOR_BODY_%d:\n", forCounter);
   AST_NODE *forCondNode = forInitNode->rightSibling;
   if (forCondNode->nodeType != NUL_NODE) {
     // TODO: what if multiple condition statement ? 
+    for (AST_NODE *exprNode = forCondNode->child;
+         exprNode;
+         exprNode = exprNode->rightSibling) {
+      CodegenExprRelated(exprNode);
+      if (!exprNode->rightSibling) {  // real condition statement
+        if (!exprNode->reg.isFloat) { // INT_TYPE
+          fprintf(outputFile, "beqz x%d, _FOR_EXIT_%d\n", exprNode->reg.registerNumber, forCounter);
+        }
+        else {                        // FLOAT_TYPE
+          int offset = TmpOffsetGet(false);
+          Reg tmpReg = RegGet(false, true, offset);
+          fprintf(outputFile, "fclass.s x%d, f%d\n",
+              tmpReg.registerNumber, exprNode->reg.registerNumber);
+          // the fclass.s instruction sets bit 3/4 if the float value is -0/+0, thus
+          // we use a bit mask 24 (11000 in binary) to check if either bit is set
+          fprintf(outputFile, "andi x%d, x%d, 24\n",
+              tmpReg.registerNumber, tmpReg.registerNumber);
+          fprintf(outputFile, "beqz x%d, _FOR_EXIT_%d\n", tmpReg.registerNumber, forCounter);
+          RegFree(tmpReg);
+          TmpOffsetFree(false, offset);
+        }
+      }
+      if (exprNode->reg.isCallerSaved) {
+        RegFree(exprNode->reg);
+        TmpOffsetFree(exprNode->reg.isFloat, exprNode->offset);
+      }
+    }
   }
   AST_NODE *forIncNode = forCondNode->rightSibling;
   if (forIncNode->nodeType != NUL_NODE) {
     for (AST_NODE *exprNode = forIncNode->child;
          exprNode;
          exprNode = exprNode->rightSibling) {
-      CodegenExprRelated(exprNode); // should be ASSIGN_STMT
+      CodegenExprRelated(exprNode);
+      if (exprNode->reg.isCallerSaved) {
+        RegFree(exprNode->reg);
+        TmpOffsetFree(exprNode->reg.isFloat, exprNode->offset);
+      }
     }
   }
   AST_NODE *stmtNode = forIncNode->rightSibling;
@@ -1889,24 +1937,27 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
   fprintf(outputFile, "## Codegen: Assign Stmt ##\n");
   AST_NODE *variableNode = assignStmt->child;
   AST_NODE *exprNode = variableNode->rightSibling;
-  CodegenVariableRef(variableNode, true); // should be var_ref (or simply ID, TODO: why?)
   CodegenExprRelated(exprNode);           // should be relop_expr
-  variableNode->reg = RegRestore(variableNode->reg, variableNode->offset);
+  CodegenVariableRef(variableNode, true); // should be var_ref (or simply ID, TODO: why?)
+  exprNode->reg = RegRestore(exprNode->reg, exprNode->offset);
   fprintf(outputFile, "mv x%d, x%d\n", variableNode->reg.registerNumber,
                                        exprNode->reg.registerNumber);
+  if (exprNode->reg.isCallerSaved) {
+    TmpOffsetFree(exprNode->reg.isFloat,
+                  exprNode->offset);
+    RegFree(exprNode->reg);
+  }
   SymbolTableEntry *entry = variableNode->semantic_value.identifierSemanticValue.symbolTableEntry;
   TypeDescriptor *entryTD = entry->attribute->attr.typeDescriptor;
-  /*
+  bool isFloatType = false;
   switch (entryTD->kind) {
     case SCALAR_TYPE_DESCRIPTOR: {
       switch (entryTD->properties.dataType) {
         case INT_TYPE:
-          fprintf(outputFile, "sd x%d, %d(fp)\n", variableNode->reg.registerNumber,
-                                                  variableNode->offset);
+          isFloatType = false;
           break;
         case FLOAT_TYPE:
-          fprintf(outputFile, "fsw f%d, %d(fp)\n", variableNode->reg.registerNumber,
-                                                   variableNode->offset);
+          isFloatType = true;
           break;
         default:
           // this should not happen
@@ -1917,18 +1968,13 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
     case ARRAY_TYPE_DESCRIPTOR: {
       // TODO: what if first element is NUL?
       ArrayProperties arrayProp = entryTD->properties.arrayProperties;
-      int elementOffset = 0;
-      int currentArraySize = 1;
-      for (int dim = arrayProp.dim; dim >= 0; dim--) {
-         
-      }
       switch (arrayProp.elementType) {
-        case INT_TYPE: {
+        case INT_TYPE:
+          isFloatType = false;
           break;
-        }
-        case FLOAT_TYPE: {
+        case FLOAT_TYPE:
+          isFloatType = true;
           break;
-        }
         default:
           // this should not happen
           assert(0);
@@ -1939,22 +1985,67 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
       // this should not happen
       assert(0);
   }
-  */
+  if (!isFloatType) {
+    fprintf(outputFile, "sd x%d, %d(fp)\n", variableNode->reg.registerNumber,
+                                            variableNode->offset);
+  }
+  else {
+    fprintf(outputFile, "fsw f%d, %d(fp)\n", variableNode->reg.registerNumber,
+                                             variableNode->offset);
+  }
+  // allocate a temporary (caller saved) register to assignStmt->reg
+  assignStmt->offset = TmpOffsetGet(isFloatType);
+  assignStmt->reg = RegGet(isFloatType, true, assignStmt->offset);
+  if (!isFloatType) {
+    fprintf(outputFile, "mv x%d, x%d\n", assignStmt->reg.registerNumber,
+                                         variableNode->reg.registerNumber);
+  }
+  else {
+    fprintf(outputFile, "fmv.s f%d, f%d\n", assignStmt->reg.registerNumber,
+                                            variableNode->reg.registerNumber);
+  }
   if (variableNode->reg.isCallerSaved) {
     TmpOffsetFree(variableNode->reg.isFloat,
                   variableNode->offset);
     RegFree(variableNode->reg);
-  }
-  if (exprNode->reg.isCallerSaved) {
-    TmpOffsetFree(exprNode->reg.isFloat,
-                  exprNode->offset);
-    RegFree(exprNode->reg);
   }
 }
 
 void CodegenIfStmt(AST_NODE *ifStmt) {
   assert(ifStmt->semantic_value.stmtSemanticValue.kind == IF_STMT);
   fprintf(outputFile, "## Codegen: If Stmt ##\n");
+  AST_NODE *testNode = ifStmt->child;
+  CodegenExprRelated(testNode); 
+  if (!testNode->reg.isFloat) { // INT_TYPE
+    fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", testNode->reg.registerNumber, ifCounter);
+  }
+  else {                        // FLOAT_TYPE
+    int offset = TmpOffsetGet(false);
+    Reg tmpReg = RegGet(false, true, offset);
+    fprintf(outputFile, "fclass.s x%d, f%d\n",
+        tmpReg.registerNumber, testNode->reg.registerNumber);
+    // the fclass.s instruction sets bit 3/4 if the float value is -0/+0, thus
+    // we use a bit mask 24 (11000 in binary) to check if either bit is set
+    fprintf(outputFile, "andi x%d, x%d, 24\n",
+        tmpReg.registerNumber, tmpReg.registerNumber);
+    fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", tmpReg.registerNumber, ifCounter);
+    RegFree(tmpReg);
+    TmpOffsetFree(false, offset);
+  }
+  if (testNode->reg.isCallerSaved) {
+    RegFree(testNode->reg);
+    TmpOffsetFree(testNode->reg.isFloat, testNode->offset);
+  }
+  AST_NODE *ifStmtNode = testNode->rightSibling;
+  CodegenStmtNode(ifStmtNode);
+  AST_NODE *elseStmtNode = ifStmtNode->rightSibling;
+  if (elseStmtNode->nodeType != NUL_NODE) {
+    fprintf(outputFile, "j _IF_EXIT_%d\n", ifCounter);
+    fprintf(outputFile, "_ELSE_LABEL_%d:\n", ifCounter);
+    CodegenStmtNode(elseStmtNode);
+  }
+  fprintf(outputFile, "_IF_EXIT_%d:\n", ifCounter);
+  ifCounter++;
 }
 
 void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
@@ -1976,20 +2067,22 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   SymbolTableEntry *entry = functionCallStmt->child->semantic_value.identifierSemanticValue.symbolTableEntry;
   DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
   bool isFloatType = false;
-  switch (returnType) {
-    case INT_TYPE:
-      isFloatType = false;
-      break;
-    case FLOAT_TYPE:
-      isFloatType = true;
-      break;
-    default:
-      // this should not happen
-      break;
+  if (returnType != VOID_TYPE) {
+    switch (returnType) {
+      case INT_TYPE:
+        isFloatType = false;
+        break;
+      case FLOAT_TYPE:
+        isFloatType = true;
+        break;
+      default:
+        // this should not happen
+        break;
+    }
+    functionCallStmt->offset = TmpOffsetGet(isFloatType); 
+    functionCallStmt->reg = RegGet(isFloatType, true,
+                                   functionCallStmt->offset);
   }
-  functionCallStmt->offset = TmpOffsetGet(isFloatType); 
-  functionCallStmt->reg = RegGet(isFloatType, true,
-                                 functionCallStmt->offset);
 }
 
 void CodegenReadFunction(AST_NODE *readFunctionCall) {
@@ -2007,7 +2100,7 @@ void CodegenReadFunction(AST_NODE *readFunctionCall) {
     fprintf(outputFile, "call _read_float\n");
     readFunctionCall->offset = TmpOffsetGet(true);
     readFunctionCall->reg = RegGet(true, true, readFunctionCall->offset);
-    fprintf(outputFile, "fmv.s x%d, fa0\n", readFunctionCall->reg.registerNumber);
+    fprintf(outputFile, "fmv.s f%d, fa0\n", readFunctionCall->reg.registerNumber);
   }
   else {
     // this should not happen
@@ -2117,8 +2210,8 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       // this should not happen
       assert(0);
   }
-  RegFree(onlyParamNode->reg);
   if (onlyParamNode->reg.isCallerSaved) {
+    RegFree(onlyParamNode->reg);
     TmpOffsetFree(onlyParamNode->reg.isFloat,
                   onlyParamNode->offset);
   }
@@ -2127,5 +2220,28 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
 void CodegenReturnStmt(AST_NODE *returnStmt) {
   assert(returnStmt->semantic_value.stmtSemanticValue.kind == RETURN_STMT);
   fprintf(outputFile, "## Codegen: Return Stmt ##\n");
-  //fprintf(outputFile, "j _FUNCTION_END_%s\n");
+  // TODO: implicit type conversion ?
+  AST_NODE *returnValueNode = returnStmt->child;
+  if (returnValueNode->nodeType != NUL_NODE) {
+    CodegenExprRelated(returnValueNode);
+    if (!returnValueNode->reg.isFloat) {
+      fprintf(outputFile, "mv a0, x%d\n", returnValueNode->reg.registerNumber);
+    }
+    else {
+      fprintf(outputFile, "fmv.s fa0, f%d\n", returnValueNode->reg.registerNumber);
+    }
+    if (returnValueNode->reg.isCallerSaved) {
+      RegFree(returnValueNode->reg);
+      TmpOffsetFree(returnValueNode->reg.isFloat,
+                    returnValueNode->offset);
+    }
+  }
+  AST_NODE *currentNode, *functionId;
+  for (currentNode = returnStmt;
+       currentNode->nodeType != DECLARATION_NODE
+       && currentNode->semantic_value.declSemanticValue.kind != FUNCTION_DECL;
+       currentNode = currentNode->parent);
+  functionId = currentNode->child;
+  char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
+  fprintf(outputFile, "j _FUNCTION_END_%s\n", functionName);
 }
