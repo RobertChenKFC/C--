@@ -7,7 +7,7 @@ void f() {
 
 }
 
-int main() {
+int MAIN() {
   int c;
   c = f();
 }

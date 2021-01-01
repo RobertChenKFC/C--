@@ -2,14 +2,12 @@ int k;
 
 
 void try() {
-    /*
-    if (k < 0) {
+    if (k < 10) {
         write(k);
         write("\n");
         k = k + 1;
         try();
     }
-    */
 }
 
 int MAIN() {

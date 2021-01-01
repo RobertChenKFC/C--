@@ -590,7 +590,7 @@ void CodegenFunctionEpilogue(AST_NODE *functionNode) {
   fprintf(outputFile, "addi sp, sp, 152\n");
 
   fprintf(outputFile, "ld ra, 8(fp)\n");
-  fprintf(outputFile, "addi fp, sp, 8\n");
+  fprintf(outputFile, "addi fp, sp, -8\n");
   fprintf(outputFile, "ld fp, 0(fp)\n");
   fprintf(outputFile, "jr ra\n");
   fprintf(outputFile, ".data\n");
