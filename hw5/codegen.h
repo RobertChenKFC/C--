@@ -12,7 +12,6 @@ void RegClear();
 Reg RegGet(bool isFloat, bool isCallerSaved, int offset);
 void RegFree(Reg reg);
 Reg RegRestore(Reg oldReg, int offset);
-void RegRestoreRA();
 /* =========== register manager ========== */
 
 /* =========== label convention ========== */
@@ -26,7 +25,7 @@ extern int whileCounter;
 extern int forCounter;
 /* If:              _ELSE_LABEL_<ifCounter>,      _IF_EXIT_<ifCounter>        */
 extern int ifCounter;
-/* Function:        _FUNCTION_<functionName>                                  */
+/* Function:        _FUNCTION_<functionName>,     _FUNCTION_END_<functionName>*/
 /* Global variable: _GLOBAL_<variableName>                                    */
 /* AR size:         _FRAME_SIZE_<functionName>                                */
 /* =========== label convention ========== */
@@ -60,7 +59,7 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall);
 void CodegenReturnStmt(AST_NODE *returnStmt);
 /* Expression */
 void CodegenExprRelated(AST_NODE *exprRelated);
-void CodegenVariableRef(AST_NODE *varRef);
+void CodegenVariableRef(AST_NODE *varRef, bool isLValue);
 void CodegenConstValue(AST_NODE *constValue);
 void CodegenExpr(AST_NODE *exprNode);
 void CodegenUnaryBooleanExpr(AST_NODE *exprNode);
