@@ -25,7 +25,7 @@ extern int whileCounter;
 extern int forCounter;
 /* If:              _ELSE_LABEL_<ifCounter>,      _IF_EXIT_<ifCounter>        */
 extern int ifCounter;
-/* Function:        _FUNCTION_<functionName>,     _FUNCTION_END_<functionName>*/
+/* Function:        _start_<functionName>,        _FUNCTION_END_<functionName>*/
 /* Global variable: _GLOBAL_<variableName>                                    */
 /* AR size:         _FRAME_SIZE_<functionName>                                */
 /* =========== label convention ========== */

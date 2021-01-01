@@ -14,7 +14,7 @@ FLOAT g8[2];
 INTA g9;
 FLOATA g10;
 
-int main() {
+int MAIN() {
     int l1;
     float l2;
     INT l3;
@@ -26,8 +26,9 @@ int main() {
     INTA l9;
     FLOATA l10;
 
-    g1 = 1;
+    /*g1 = 1;*/
     g2 = 2.0;
+    /*
     g3 = 3;
     g4 = 4.0;
     g5[0] = 5;
@@ -59,11 +60,13 @@ int main() {
     l9[1] = 99;
     l10[0] = 10.0;
     l10[1] = 100.0;
+    */
 
     write(g1);
     write("\n");
     write(g2);
     write("\n");
+    /*
     write(g3);
     write("\n");
     write(g4);
@@ -92,7 +95,9 @@ int main() {
     write("\n");
     write(g10[1]);
     write("\n");
+    */
 
+    /*
     write(l1);
     write("\n");
     write(l2);
@@ -125,5 +130,6 @@ int main() {
     write("\n");
     write(l10[1]);
     write("\n");
+    */
     return 0;
 }

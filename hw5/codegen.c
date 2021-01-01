@@ -511,7 +511,7 @@ void CodegenProgramNode(AST_NODE *programNode) {
   // initialization is done here
   TmpOffsetInit();
   RegInit();
-  outputFile = fopen("output.S", "w");
+  outputFile = fopen("output.s", "w");
   //outputFile = stderr;
 
   fprintf(outputFile, ".text\n");
@@ -549,7 +549,7 @@ void CodegenFunctionPrologue(AST_NODE *functionNode) {
   char *functionName = functionNode->child->rightSibling->
     semantic_value.identifierSemanticValue.identifierName;
   fprintf(outputFile, ".text\n");
-  fprintf(outputFile, "_FUNCTION_%s\n", functionName);
+  fprintf(outputFile, "_start_%s:\n", functionName);
   fprintf(outputFile, "sd ra, 0(sp)\n");
   fprintf(outputFile, "sd fp, -8(sp)\n");
   fprintf(outputFile, "addi fp, sp, -8\n");
@@ -590,7 +590,7 @@ void CodegenFunctionEpilogue(AST_NODE *functionNode) {
     fprintf(outputFile, "flw f%d, %d(sp)\n",
         floatCalleeSavedRegisters[j], i * 8 + j * 4);
   }
-  fprintf(outputFile, "addi sp, sp, 136\n");
+  fprintf(outputFile, "addi sp, sp, 152\n");
 
   fprintf(outputFile, "ld ra, 8(fp)\n");
   fprintf(outputFile, "addi fp, sp, 8\n");
@@ -693,7 +693,7 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
             case FLOAT_TYPE:
               entry->reg = RegGet(true, false, entry->offset);
               if (!isLValue)
-                fprintf(outputFile, "flw f%d, %d(fp\n)",
+                fprintf(outputFile, "flw f%d, %d(fp)\n",
                         entry->reg.registerNumber, entry->offset);
               break;
             default:
@@ -739,10 +739,12 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
       }
       switch (arrayProperties->elementType) {
         case INT_TYPE:
-          fprintf(outputFile, "slli x%d, 3\n", vpReg.registerNumber);
+          fprintf(outputFile, "slli x%d, x%d, 3\n",
+                  vpReg.registerNumber, vpReg.registerNumber);
           break;
         case FLOAT_TYPE:
-          fprintf(outputFile, "slli x%d, 2\n", vpReg.registerNumber);
+          fprintf(outputFile, "slli x%d, x%d, 2\n",
+                  vpReg.registerNumber, vpReg.registerNumber);
           break;
         default:
           // this should not happen
@@ -883,19 +885,19 @@ void CodegenConstValue(AST_NODE *constValue) {
       fprintf(outputFile, ".text\n");
       fprintf(outputFile, "la x%d, _CONSTANT_%d\n",
           addrReg.registerNumber, constantLabelNo);
-      fprintf(outputFile, "flw f%d, 0(x%d\n)",
+      fprintf(outputFile, "flw f%d, 0(x%d)\n",
           constValue->reg.registerNumber, addrReg.registerNumber);
       RegFree(addrReg);
       break;
     } case STRINGC: {
       constValue->offset = TmpOffsetGet(false);
-      constValue->reg = RegGet(true, true, constValue->offset);
+      constValue->reg = RegGet(false, true, constValue->offset);
       fprintf(outputFile, ".data\n");
       fprintf(outputFile, "_CONSTANT_%d: .string %s\n",
           constantLabelNo, val->const_u.sc);
       // TODO: verify that .align 3 (8 byte alignment) is correct; for some
       //       reason, the example code writes .align 4
-      fprintf(outputFile, ".align 3\n");
+      fprintf(outputFile, ".align 4\n");
       fprintf(outputFile, ".text\n");
       fprintf(outputFile, "la x%d, _CONSTANT_%d\n",
           constValue->reg.registerNumber, constantLabelNo);
@@ -1998,25 +2000,38 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
     }
   }
   // allocate a temporary (caller saved) register to assignStmt->reg
-  assignStmt->offset = TmpOffsetGet(isFloatType);
-  assignStmt->reg = RegGet(isFloatType, true, assignStmt->offset);
-  if (!isFloatType) {
-    fprintf(outputFile, "mv x%d, x%d\n", assignStmt->reg.registerNumber,
-                                         variableNode->reg.registerNumber);
+  if (assignStmt->parent->nodeType == STMT_NODE &&
+      (assignStmt->parent->semantic_value.stmtSemanticValue.kind == IF_STMT ||
+       assignStmt->parent->semantic_value.stmtSemanticValue.kind == WHILE_STMT ||
+       assignStmt->parent->semantic_value.stmtSemanticValue.kind == FOR_STMT)) {
+    assignStmt->offset = TmpOffsetGet(isFloatType);
+    assignStmt->reg = RegGet(isFloatType, true, assignStmt->offset);
+    if (!isFloatType) {
+      fprintf(outputFile, "mv x%d, x%d\n", assignStmt->reg.registerNumber,
+                                           variableNode->reg.registerNumber);
+    }
+    else {
+      fprintf(outputFile, "fmv.s f%d, f%d\n", assignStmt->reg.registerNumber,
+                                              variableNode->reg.registerNumber);
+    }
   }
-  else {
-    fprintf(outputFile, "fmv.s f%d, f%d\n", assignStmt->reg.registerNumber,
-                                            variableNode->reg.registerNumber);
-  }
+  // DEBUG
+  printf("Assign statment\n");
   if (exprNode->reg.isCallerSaved) {
     TmpOffsetFree(exprNode->reg.isFloat,
                   exprNode->offset);
     RegFree(exprNode->reg);
+    // DEBUG
+    printf("EXPR: reg %s%d is freed\n", exprNode->reg.isFloat ? "f" : "x",
+           exprNode->reg.registerNumber);
   }
   if (variableNode->reg.isCallerSaved) {
     TmpOffsetFree(variableNode->reg.isFloat,
                   variableNode->offset);
     RegFree(variableNode->reg);
+    // DEBUG
+    printf("VAR: reg %s%d is freed\n", variableNode->reg.isFloat ? "f" : "x",
+           variableNode->reg.registerNumber);
   }
 }
 
@@ -2072,7 +2087,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   }
   fprintf(outputFile, "## Codegen: Normal Function Call Stmt ##\n");
   RegClear();
-  fprintf(outputFile, "jal _FUNCTION_%s\n", functionName);  
+  fprintf(outputFile, "jal _start_%s\n", functionName);  
   SymbolTableEntry *entry = functionCallStmt->child->semantic_value.identifierSemanticValue.symbolTableEntry;
   DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
   bool isFloatType = false;
@@ -2247,7 +2262,7 @@ void CodegenReturnStmt(AST_NODE *returnStmt) {
        currentNode->nodeType != DECLARATION_NODE
        && currentNode->semantic_value.declSemanticValue.kind != FUNCTION_DECL;
        currentNode = currentNode->parent);
-  functionId = currentNode->child;
+  functionId = currentNode->child->rightSibling;
   char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
   fprintf(outputFile, "j _FUNCTION_END_%s\n", functionName);
 }
