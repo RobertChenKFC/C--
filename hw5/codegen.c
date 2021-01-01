@@ -661,15 +661,21 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
                       varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
           } case FLOAT_TYPE: {
-            Reg addrReg = RegGet(false, true, NUL_OFFSET);
-            varRef->offset = TmpOffsetGet(true);
-            varRef->reg = RegGet(true, true, varRef->offset);
-            fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
-                    addrReg.registerNumber, id->identifierName);
-            if (!isLValue)
+            if (isLValue) {
+              varRef->offset = TmpOffsetGet(false);
+              varRef->reg = RegGet(false, true, varRef->offset);
+              fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
+                      varRef->reg.registerNumber, id->identifierName);
+            } else {
+              Reg addrReg = RegGet(false, true, NUL_OFFSET);
+              varRef->offset = TmpOffsetGet(true);
+              varRef->reg = RegGet(true, true, varRef->offset);
+              fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
+                      addrReg.registerNumber, id->identifierName);
               fprintf(outputFile, "flw f%d, 0(x%d)\n",
                       varRef->reg.registerNumber, addrReg.registerNumber);
-            RegFree(addrReg);
+              RegFree(addrReg);
+            }
             break;
           } default: {
             // this should not happen
@@ -1646,10 +1652,10 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
           memSize = 1;
           switch (singleVariableTD->properties.dataType) {
             case INT_TYPE:
-              fprintf(outputFile, "_GLOBAL_%s: .word\n", singleVariableName);
+              fprintf(outputFile, "_GLOBAL_%s: .dword 0\n", singleVariableName);
               break;
             case FLOAT_TYPE:
-              fprintf(outputFile, "_GLOBAL_%s: .float\n", singleVariableName);
+              fprintf(outputFile, "_GLOBAL_%s: .float 0\n", singleVariableName);
               break;
             default:
               // this should not happen
@@ -2119,9 +2125,17 @@ void CodegenReadFunction(AST_NODE *readFunctionCall) {
   char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
   if (!strcmp("read", functionName)) {        // return int
     fprintf(outputFile, "call _read_int\n");  
+    // EDIT
+    readFunctionCall->reg.isCallerSaved = false;
+    readFunctionCall->reg.isFloat = false;
+    readFunctionCall->reg.registerNumber = 10;
   }
   else if (!strcmp("fread", functionName)) {  // return float
     fprintf(outputFile, "call _read_float\n");
+    // EDIT
+    readFunctionCall->reg.isCallerSaved = false;
+    readFunctionCall->reg.isFloat = true;
+    readFunctionCall->reg.registerNumber = 10;
   }
   else {
     // this should not happen
@@ -2171,20 +2185,32 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
           // this should not happen
           assert(0);
       }
-      fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
+      // EDIT
+      //fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
+      if (isIntType)
+        fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
+      else
+        fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
       fprintf(outputFile, "jal _write_%s\n", isIntType ? "int" : "float");
       break;
     }
     case CONST_VALUE_NODE: {
-      fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
+      // EDIT
+      //fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       switch (onlyParamNode->semantic_value.const1->const_type) {
         case INTEGERC:
+          // EDIT
+          fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_int\n");
           break;
         case FLOATC:
+          // EDIT
+          fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_float\n");
           break;
         case STRINGC:
+          // EDIT
+          fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_str\n");
           break;
         default:
@@ -2196,12 +2222,17 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
     case STMT_NODE: { // FUNCTION_CALL_STMT
       SymbolTableEntry *entry = onlyParamNode->child->semantic_value.identifierSemanticValue.symbolTableEntry;
       DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
-      fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
+      // EDIT
+      //fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       switch (returnType) {
         case INT_TYPE:
+          // EDIT
+          fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_int\n");
           break;
         case FLOAT_TYPE:
+          // EDIT
+          fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_float\n");
           break;
         case VOID_TYPE:

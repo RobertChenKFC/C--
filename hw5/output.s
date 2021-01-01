@@ -5,16 +5,16 @@
 ## Codegen: Type Declaration ##
 ## Codegen: Global Variable Declaration ##
 .data
-_GLOBAL_g1: .word
+_GLOBAL_g1: .dword 0
 ## Codegen: Global Variable Declaration ##
 .data
-_GLOBAL_g2: .float
+_GLOBAL_g2: .float 0
 ## Codegen: Global Variable Declaration ##
 .data
-_GLOBAL_g3: .word
+_GLOBAL_g3: .dword 0
 ## Codegen: Global Variable Declaration ##
 .data
-_GLOBAL_g4: .float
+_GLOBAL_g4: .float 0
 ## Codegen: Global Variable Declaration ##
 .data
 _GLOBAL_g5: .space 16
@@ -86,7 +86,7 @@ _CONSTANT_0: .float 2.000000
 la x5, _CONSTANT_0
 flw f0, 0(x5)
 la x6, _GLOBAL_g2
-fsw f0, 0(x1)
+fsw f0, 0(x6)
 ## Codegen: write() call Stmt ##
 la x7, _GLOBAL_g1
 ld x7, 0(x7)
@@ -102,8 +102,8 @@ mv a0, x28
 jal _write_str
 ## Codegen: write() call Stmt ##
 la x29, _GLOBAL_g2
-flw f2, 0(x29)
-mv a0, x2
+flw f1, 0(x29)
+fmv.s fa0, f1
 jal _write_float
 ## Codegen: write() call Stmt ##
 .data
@@ -123,7 +123,7 @@ lw x31, 0(x31)
 mv a0, x31
 j _FUNCTION_END_MAIN
 _FUNCTION_END_MAIN:
-addi sp, sp, 112
+addi sp, sp, 108
 ld x9, 0(sp)
 ld x18, 8(sp)
 ld x19, 16(sp)
@@ -153,5 +153,5 @@ addi fp, sp, 8
 ld fp, 0(fp)
 jr ra
 .data
-_FRAME_SIZE_MAIN: .word 112
+_FRAME_SIZE_MAIN: .word 108
 .text
