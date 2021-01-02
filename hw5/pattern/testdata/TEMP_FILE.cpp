@@ -25,31 +25,31 @@
     return -12.81;
   }
 
-  int MAIN() {
-  int a[100];
-  int b[100];
-  b[99] = 456;
-  {
-    int a[100];
-    {
-      int a[100];
-      a[0] = 123;
-      write(a[0]);
-      write(b[99]);
-    }
-    a[0] = 456;
-    write(a[0]);
-    write(b[99]);
-    {
-      int b[100];
-      b[99] = 666;
-      write(a[0]);
-      write(b[99]);
-    }
-  }
-  /* this seems incorrect... */
-  write(a[0]);
-  write(b[99]);
+  float r, pi;
+
+float Calc() {
+  float ret;
+  ret = r * r * pi;
+  return ret;
+}
+
+int MAIN() {
+  pi = 3.14159;
+  r = 1.0;
+  write(Calc());
+  write("\n");
+  r = 0.0;
+  write(Calc());
+  write("\n");
+  r = pi;
+  write(Calc());
+  write("\n");
+  r = 100000000000.0000;
+  write(Calc());
+  write("\n");
+  r = 1231232131.123;
+  write(Calc());
+  write("\n");
 }
 
   int main() {

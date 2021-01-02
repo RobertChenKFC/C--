@@ -31,7 +31,7 @@ OK large-local-arr.c
 OK lis.c
 OK locals-arr.c
 OK locals.c
-ERROR long-jump.c
+OK long-jump.c
 ERROR long-long-jump.c
 OK merge-sort.c
 OK nothing.c
@@ -43,8 +43,8 @@ OK scope.c
 FLOAT_OK simple.c
 OK spill.c
 FLOAT_OK spill-float.c
-sqrt.c
-while-2.c
-while-3.c
-while-4.c
-while.c
+FLOAT_OK sqrt.c
+OK while-2.c
+OK while-3.c
+OK while-4.c
+OK while.c

@@ -1112,11 +1112,11 @@ void CodegenUnaryBooleanExpr(AST_NODE *exprNode) {
         // then current level has to do the short circuit
         exprNode->reg.registerNumber = NUL_REG;
         if (exprNode->shortOnFalse)
-          fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-              exprNode->reg.registerNumber, exprNode->parentLabelNo);
-        else
           fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-              exprNode->reg.registerNumber, exprNode->parentLabelNo);
+              exprNode->child->reg.registerNumber, exprNode->parentLabelNo);
+        else
+          fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
+              exprNode->child->reg.registerNumber, exprNode->parentLabelNo);
       }
       break;
     default:
@@ -2131,6 +2131,15 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
       // this should not happen
       assert(0);
   }
+  Reg exprReg;
+  if (isFloatType && !exprNode->reg.isFloat) {
+    exprReg = RegGet(true, true, NUL_OFFSET);
+    RegFree(exprReg);
+    fprintf(outputFile, "fcvt.s.w f%d, x%d\n",
+            exprReg.registerNumber, exprNode->reg.registerNumber);
+  } else {
+    exprReg = exprNode->reg;
+  }
   if (variableNode->reg.isCallerSaved) {
     if (!isFloatType) {
       // DEBUG
@@ -2138,21 +2147,21 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
       fprintf(outputFile, "sd x%d, 0(x%d)\n", exprNode->reg.registerNumber,
                                               variableNode->reg.registerNumber);
       */
-      fprintf(outputFile, "sw x%d, 0(x%d)\n", exprNode->reg.registerNumber,
+      fprintf(outputFile, "sw x%d, 0(x%d)\n", exprReg.registerNumber,
                                               variableNode->reg.registerNumber);
     }
     else {
-      fprintf(outputFile, "fsw f%d, 0(x%d)\n", exprNode->reg.registerNumber,
+      fprintf(outputFile, "fsw f%d, 0(x%d)\n", exprReg.registerNumber,
                                                variableNode->reg.registerNumber);
     }
   } else {
     if (!isFloatType) {
       fprintf(outputFile, "mv x%d, x%d\n", variableNode->reg.registerNumber,
-                                           exprNode->reg.registerNumber);
+                                           exprReg.registerNumber);
     }
     else {
       fprintf(outputFile, "fmv.s f%d, f%d\n", variableNode->reg.registerNumber,
-                                              exprNode->reg.registerNumber);
+                                              exprReg.registerNumber);
     }
   }
   // allocate a temporary (caller saved) register to assignStmt->reg
@@ -2241,7 +2250,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   }
   fprintf(outputFile, "## Codegen: Normal Function Call Stmt ##\n");
   RegClear();
-  fprintf(outputFile, "jal _start_%s\n", functionName);
+  fprintf(outputFile, "call _start_%s\n", functionName);
   SymbolTableEntry *entry = functionCallStmt->child->semantic_value.identifierSemanticValue.symbolTableEntry;
   DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
   bool isFloatType = false;
@@ -2363,22 +2372,22 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
         fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       else
         fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-      fprintf(outputFile, "jal _write_%s\n", isIntType ? "int" : "float");
+      fprintf(outputFile, "call _write_%s\n", isIntType ? "int" : "float");
       break;
     }
     case CONST_VALUE_NODE: {
       switch (onlyParamNode->semantic_value.const1->const_type) {
         case INTEGERC:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "jal _write_int\n");
+          fprintf(outputFile, "call _write_int\n");
           break;
         case FLOATC:
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "jal _write_float\n");
+          fprintf(outputFile, "call _write_float\n");
           break;
         case STRINGC:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "jal _write_str\n");
+          fprintf(outputFile, "call _write_str\n");
           break;
         default:
           // this should not happen
@@ -2392,11 +2401,11 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       switch (returnType) {
         case INT_TYPE:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "jal _write_int\n");
+          fprintf(outputFile, "call _write_int\n");
           break;
         case FLOAT_TYPE:
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "jal _write_float\n");
+          fprintf(outputFile, "call _write_float\n");
           break;
         case VOID_TYPE:
           assert(0 && "void value not ignored as it ought to be");
@@ -2410,11 +2419,11 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       switch (onlyParamNode->dataType) {
         case INT_TYPE:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "jal _write_int\n");
+          fprintf(outputFile, "call _write_int\n");
           break;
         case FLOAT_TYPE:
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "jal _write_float\n");
+          fprintf(outputFile, "call _write_float\n");
           break;
         default:
           // this should not happen
