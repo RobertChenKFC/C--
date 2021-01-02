@@ -209,8 +209,8 @@ void TmpOffsetReset() {
 
 int TmpOffsetGetImpl(Vector *freeTmpOffsets, int size) {
   if (VectorSize(freeTmpOffsets) == 0) {
-    VectorPushback(freeTmpOffsets, -arSize);
     arSize += size;
+    VectorPushback(freeTmpOffsets, -arSize);
   }
   return VectorPopback(freeTmpOffsets);
 }
@@ -238,8 +238,6 @@ void TmpOffsetFree(bool isFloat, int tmpOffset) {
 /* ========== register manager ========== */
 
 #define RISCV_MAX_REG_NUM  32
-#define PLACEHOLDER_OFFSET 0  // fp+0 is used to store old fp, thus should not
-                              // be a valid register spilling address
 #define NUL_OFFSET         8  // fp+8 is used to store return address, thus
                               // should not be a valid register spilling address
 /*
@@ -336,8 +334,6 @@ void RegClear() {
        registerNumber != NUL_IDX;
        registerNumber = ListNext(usedIntCallerSavedRegisters, registerNumber)) {
     int offset = intCallerSavedRegisterOffsets[registerNumber];
-    // placeholder offset should only be set by callee saved registers
-    assert(offset != PLACEHOLDER_OFFSET);
     if (offset != NUL_OFFSET) {
       fprintf(outputFile, "sd x%d, %d(fp)\n", registerNumber, offset);
       intCallerSavedRegisterOffsets[registerNumber] = NUL_OFFSET;
@@ -350,8 +346,6 @@ void RegClear() {
        registerNumber = ListNext(usedFloatCallerSavedRegisters,
                                  registerNumber)) {
     int offset = floatCallerSavedRegisterOffsets[registerNumber];
-    // placeholder offset should only be set by callee saved registers
-    assert(offset != PLACEHOLDER_OFFSET);
     if (offset != NUL_OFFSET) {
       fprintf(outputFile, "fsw f%d, %d(fp)\n",
           registerNumber, floatCallerSavedRegisterOffsets[registerNumber]);
@@ -360,7 +354,12 @@ void RegClear() {
   }
 }
 
+// DEBUG
+/*
 int RegGetImpl(bool isFloat, int *registerOffsets,
+               List *freeRegisters, List *usedRegisters, int offset) {
+*/
+int RegGetImpl(bool isFloat, bool isCallerSaved, int *registerOffsets,
                List *freeRegisters, List *usedRegisters, int offset) {
   if (ListEmpty(freeRegisters)) {
     // no more registers, need to spill
@@ -372,8 +371,13 @@ int RegGetImpl(bool isFloat, int *registerOffsets,
       // encountered, this means that the register has already been saved.
       if (isFloat)
         fprintf(outputFile, "fsw f%d, %d(fp)\n", spillRegister, spillOffset);
-      else
+      // DEBUG
+      //else
+      else if (isCallerSaved)
         fprintf(outputFile, "sd x%d, %d(fp)\n", spillRegister, spillOffset);
+      // DEBUG
+      else
+        fprintf(outputFile, "sw x%d, %d(fp)\n", spillRegister, spillOffset);
     }
     ListPush(freeRegisters, spillRegister);
   }
@@ -390,28 +394,56 @@ Reg RegGet(bool isFloat, bool isCallerSaved, int offset) {
   if (isFloat) {
     if (isCallerSaved) {
       // float caller saved register
+      // DEBUG
+      /*
       newRegister.registerNumber = RegGetImpl(
           true, floatCallerSavedRegisterOffsets,
           freeFloatCallerSavedRegisters, usedFloatCallerSavedRegisters,
           offset);
+      */
+      newRegister.registerNumber = RegGetImpl(
+          true, true, floatCallerSavedRegisterOffsets,
+          freeFloatCallerSavedRegisters, usedFloatCallerSavedRegisters,
+          offset);
     } else {
       // float callee saved register
+      // DEBUG
+      /*
       newRegister.registerNumber = RegGetImpl(
           true, floatCalleeSavedRegisterOffsets,
+          freeFloatCalleeSavedRegisters, usedFloatCalleeSavedRegisters,
+          offset);
+      */
+      newRegister.registerNumber = RegGetImpl(
+          true, false, floatCalleeSavedRegisterOffsets,
           freeFloatCalleeSavedRegisters, usedFloatCalleeSavedRegisters,
           offset);
     }
   } else {
     if (isCallerSaved) {
       // int caller saved register
+      // DEBUG
+      /*
       newRegister.registerNumber = RegGetImpl(
           false, intCallerSavedRegisterOffsets,
           freeIntCallerSavedRegisters, usedIntCallerSavedRegisters,
           offset);
+      */
+      newRegister.registerNumber = RegGetImpl(
+          false, true, intCallerSavedRegisterOffsets,
+          freeIntCallerSavedRegisters, usedIntCallerSavedRegisters,
+          offset);
     } else {
       // int caller saved register
+      // DEBUG
+      /*
       newRegister.registerNumber = RegGetImpl(
           false, intCalleeSavedRegisterOffsets,
+          freeIntCalleeSavedRegisters, usedIntCalleeSavedRegisters,
+          offset);
+      */
+      newRegister.registerNumber = RegGetImpl(
+          false, false, intCalleeSavedRegisterOffsets,
           freeIntCalleeSavedRegisters, usedIntCalleeSavedRegisters,
           offset);
     }
@@ -451,18 +483,38 @@ void RegFree(Reg reg) {
   }
 }
 
+// DEBUG
+/*
 int RegRestoreImpl(int oldRegisterNumber, bool isFloat, int *registerOffsets,
+                   List *freeRegisters, List *usedRegisters,
+                   int offset) {
+*/
+int RegRestoreImpl(int oldRegisterNumber, bool isFloat, bool isCallerSaved,
+                   int *registerOffsets,
                    List *freeRegisters, List *usedRegisters,
                    int offset) {
   if (registerOffsets[oldRegisterNumber] == offset)
     return oldRegisterNumber;
+
+  // DEBUG
+  /*
   int newRegisterNumber = RegGetImpl(isFloat, registerOffsets,
                                      freeRegisters, usedRegisters,
                                      offset);
+  */
+  int newRegisterNumber = RegGetImpl(isFloat, isCallerSaved, registerOffsets,
+                                     freeRegisters, usedRegisters,
+                                     offset);
+
   if (isFloat)
     fprintf(outputFile, "flw f%d, %d(fp)\n", newRegisterNumber, offset);
-  else
+  // DEBUG
+  //else
+  else if (isCallerSaved)
     fprintf(outputFile, "ld x%d, %d(fp)\n", newRegisterNumber, offset);
+  // DEBUG
+  else
+    fprintf(outputFile, "lw x%d, %d(fp)\n", newRegisterNumber, offset);
   return newRegisterNumber;
 }
 
@@ -471,29 +523,60 @@ Reg RegRestore(Reg oldReg, int offset) {
   if (oldReg.isFloat) {
     if (oldReg.isCallerSaved) {
       // float caller saved register
+      // DEBUG
+      /*
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, true, floatCallerSavedRegisterOffsets,
           freeFloatCallerSavedRegisters, usedFloatCallerSavedRegisters,
           offset);
+      */
+      newReg.registerNumber = RegRestoreImpl(
+          oldReg.registerNumber, true, true,
+          floatCallerSavedRegisterOffsets, freeFloatCallerSavedRegisters,
+          usedFloatCallerSavedRegisters,
+          offset);
     } else {
       // float callee saved register
+      // DEBUG
+      /*
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, true, floatCalleeSavedRegisterOffsets,
           freeFloatCalleeSavedRegisters, usedFloatCalleeSavedRegisters,
           offset);
+      */
+      newReg.registerNumber = RegRestoreImpl(
+          oldReg.registerNumber, true, false,
+          floatCalleeSavedRegisterOffsets, freeFloatCalleeSavedRegisters,
+          usedFloatCalleeSavedRegisters, offset);
     }
   } else {
     if (oldReg.isCallerSaved) {
       // int caller saved register
+      // DEBUG
+      /*
       newReg.registerNumber = RegRestoreImpl(
-          oldReg.registerNumber, true, intCallerSavedRegisterOffsets,
+          oldReg.registerNumber, false, intCallerSavedRegisterOffsets,
           freeIntCallerSavedRegisters, usedIntCallerSavedRegisters,
+          offset);
+      */
+      newReg.registerNumber = RegRestoreImpl(
+          oldReg.registerNumber, false, true,
+          intCallerSavedRegisterOffsets, freeIntCallerSavedRegisters,
+          usedIntCallerSavedRegisters,
           offset);
     } else {
       // int callee saved register
+      // DEBUG
+      /*
       newReg.registerNumber = RegRestoreImpl(
-          oldReg.registerNumber, true, intCalleeSavedRegisterOffsets,
+          oldReg.registerNumber, false, intCalleeSavedRegisterOffsets,
           freeIntCalleeSavedRegisters, usedIntCalleeSavedRegisters,
+          offset);
+      */
+      newReg.registerNumber = RegRestoreImpl(
+          oldReg.registerNumber, false, false,
+          intCalleeSavedRegisterOffsets, freeIntCalleeSavedRegisters,
+          usedIntCalleeSavedRegisters,
           offset);
     }
   }
@@ -578,7 +661,8 @@ void CodegenFunctionEpilogue(AST_NODE *functionNode) {
 
   fprintf(outputFile, "_FUNCTION_END_%s:\n", functionName); // TODO: epilogue ?
 
-  fprintf(outputFile, "addi sp, sp, %d\n", arSize);
+  fprintf(outputFile, "li t0, %d\n", arSize);
+  fprintf(outputFile, "add sp, sp, t0\n");
   int i;
   for (i = 0; intCalleeSavedRegisters[i] != NUL_REG; ++i)
     fprintf(outputFile, "ld x%d, %d(sp)\n",
@@ -654,7 +738,12 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
             fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
                     varRef->reg.registerNumber, id->identifierName);
             if (!isLValue)
+              // DEBUG
+              /*
               fprintf(outputFile, "ld x%d, 0(x%d)\n",
+                      varRef->reg.registerNumber, varRef->reg.registerNumber);
+              */
+              fprintf(outputFile, "lw x%d, 0(x%d)\n",
                       varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
           } case FLOAT_TYPE: {
@@ -690,7 +779,12 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
             case FLOAT_PTR_TYPE:
               entry->reg = RegGet(false, false, entry->offset);
               if (!isLValue)
+                // DEBUG
+                /*
                 fprintf(outputFile, "ld x%d, %d(fp)\n",
+                        entry->reg.registerNumber, entry->offset);
+                */
+                fprintf(outputFile, "lw x%d, %d(fp)\n",
                         entry->reg.registerNumber, entry->offset);
               break;
             case FLOAT_TYPE:
@@ -738,21 +832,30 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
               vpReg.registerNumber, vpReg.registerNumber,
               dimNode->reg.registerNumber);
         }
-        RegFree(dimNode->reg);
+        if (dimNode->reg.isCallerSaved) {
+          TmpOffsetFree(dimNode->reg.isFloat, dimNode->offset);
+          RegFree(dimNode->reg);
+        }
       }
+      // DEBUG
+      /*
       switch (arrayProperties->elementType) {
         case INT_TYPE:
           fprintf(outputFile, "slli x%d, x%d, 3\n",
                   vpReg.registerNumber, vpReg.registerNumber);
           break;
         case FLOAT_TYPE:
+      */
           fprintf(outputFile, "slli x%d, x%d, 2\n",
                   vpReg.registerNumber, vpReg.registerNumber);
+      // DEBUG
+      /*
           break;
         default:
           // this should not happen
           assert(0);
       }
+      */
 
       // add base address to variable part and load
       if (entry->nestingLevel == 0) {
@@ -769,7 +872,12 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
                 varRef->reg.registerNumber, varRef->reg.registerNumber,
                 vpReg.registerNumber);
             if (!isLValue)
+              // DEBUG
+              /*
               fprintf(outputFile, "ld x%d, 0(x%d)\n",
+                  varRef->reg.registerNumber, varRef->reg.registerNumber);
+              */
+              fprintf(outputFile, "lw x%d, 0(x%d)\n",
                   varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
           } case FLOAT_TYPE: {
@@ -807,8 +915,10 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
           // assigned to a register yet, should be assigned to a callee saved
           // register
           entry->reg = RegGet(false, false, entry->offset);
-          fprintf(outputFile, "addi x%d, fp, %d\n",
+          fprintf(outputFile, "li x%d, %d\n",
                   entry->reg.registerNumber, entry->offset);
+          fprintf(outputFile, "add x%d, x%d, fp\n",
+                  entry->reg.registerNumber, entry->reg.registerNumber);
         } else {
           // variable is a local variable or parameter, and has been assigned
           // to a register, then we restore the register
@@ -826,7 +936,12 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
                 varRef->reg.registerNumber, varRef->reg.registerNumber,
                 vpReg.registerNumber);
             if (!isLValue)
+              // DEBUG
+              /*
               fprintf(outputFile, "ld x%d, 0(x%d)\n",
+                  varRef->reg.registerNumber, varRef->reg.registerNumber);
+              */
+              fprintf(outputFile, "lw x%d, 0(x%d)\n",
                   varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
           } case FLOAT_TYPE: {
@@ -878,7 +993,12 @@ void CodegenConstValue(AST_NODE *constValue) {
       constValue->offset = TmpOffsetGet(false);
       constValue->reg = RegGet(false, true, constValue->offset);
       fprintf(outputFile, ".data\n");
+      // DEBUG
+      /*
       fprintf(outputFile, "_CONSTANT_%d: .dword %d\n",
+          constantLabelNo, val->const_u.intval);
+      */
+      fprintf(outputFile, "_CONSTANT_%d: .word %d\n",
           constantLabelNo, val->const_u.intval);
       // TODO: verify that .align 2 (4 byte alignment) is correct; for some
       //       reason, the example code writes .align 3
@@ -896,7 +1016,7 @@ void CodegenConstValue(AST_NODE *constValue) {
       fprintf(outputFile, ".data\n");
       // TODO: verify if using .float here is correct; apparently, there may be
       // some format issues
-      fprintf(outputFile, "_CONSTANT_%d: .float %f\n",
+      fprintf(outputFile, "_CONSTANT_%d: .float %.9g\n",
           constantLabelNo, val->const_u.fval);
       // TODO: verify that .align 2 (4 byte alignment) is correct; for some
       //       reason, the example code writes .align 3
@@ -974,7 +1094,7 @@ void CodegenUnaryBooleanExpr(AST_NODE *exprNode) {
         exprNode->child->parentLabelNo = exprNode->parentLabelNo;
         exprNode->child->shortOnFalse = !exprNode->shortOnFalse;
       }
-      CodegenExpr(exprNode->child);
+      CodegenExprRelated(exprNode->child);
       if (exprNode->child->reg.isCallerSaved) {
         RegFree(exprNode->child->reg);
         TmpOffsetFree(exprNode->child->reg.isFloat,
@@ -1124,8 +1244,10 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
     TmpOffsetFree(rightExprNode->reg.isFloat, rightExprNode->offset);
   }
 
-  if (leftExprNode->dataType == FLOAT_TYPE ||
-      rightExprNode->dataType == FLOAT_TYPE) {
+  if ((leftExprNode->dataType == FLOAT_TYPE ||
+       rightExprNode->dataType == FLOAT_TYPE) &&
+      (expr->op.binaryOp != BINARY_OP_AND &&
+       expr->op.binaryOp != BINARY_OP_OR)) {
     // implicit type conversion
     if (leftExprNode->dataType == INT_TYPE) {
       int intRegisterNumber = leftExprNode->reg.registerNumber;
@@ -1433,7 +1555,11 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         exprNode->reg = RegGet(false, true, exprNode->offset);
         fprintf(outputFile, "addi x%d, x0, 1\n", exprNode->reg.registerNumber);
         fprintf(outputFile, "j _BOOL_EXIT_%d\n", labelNo);
-      } else if (!exprNode->shortOnFalse) {
+      } else if (exprNode->shortOnFalse) {
+        // parent is a short circuit expression and it shorts on false, then
+        // exit the current boolean expression
+        fprintf(outputFile, "j _BOOL_EXIT_%d\n", labelNo);
+      } else {
         // parent is a short circuit expression and it shorts on true, then
         // directly jump
         fprintf(outputFile, "j _BOOL_SHORT_%d\n", exprNode->parentLabelNo);
@@ -1443,8 +1569,6 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
       if (exprNode->parentLabelNo == NUL_LABEL) {
         // parent is not a short circuit expression, then actually calculate
         // the arithemtic value
-        exprNode->offset = TmpOffsetGet(false);
-        exprNode->reg = RegGet(false, true, exprNode->offset);
         fprintf(outputFile, "mv x%d, x0\n", exprNode->reg.registerNumber);
       } else if (exprNode->shortOnFalse) {
         // parent is a short circuit expression and it shorts on false, then
@@ -1466,14 +1590,16 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         // parent is a short circuit expression and it shorts on false, then
         // directly jump
         fprintf(outputFile, "j _BOOL_SHORT_%d\n", exprNode->parentLabelNo);
+      } else {
+        // parent is a short circuit expression and it shorts on true, then
+        // exit the current boolean expression
+        fprintf(outputFile, "j _BOOL_EXIT_%d\n", labelNo);
       }
       // short circuit code, which corresponds to true
       fprintf(outputFile, "_BOOL_SHORT_%d:\n", labelNo);
       if (exprNode->parentLabelNo == NUL_LABEL) {
         // parent is not a short circuit expression, then actually calculate
         // the arithemtic value
-        exprNode->offset = TmpOffsetGet(false);
-        exprNode->reg = RegGet(false, true, exprNode->offset);
         fprintf(outputFile, "addi x%d, x0, 1\n", exprNode->reg.registerNumber);
       } else if (!exprNode->shortOnFalse) {
         // parent is a short circuit expression and it shorts on true, then
@@ -1647,7 +1773,7 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
   }
   // otherwise, do Variable Declaration
   AST_NODE *typeNode = variableNode->child;
-  AST_NODE *firstVariable = variableNode->child->rightSibling; 
+  AST_NODE *firstVariable = variableNode->child->rightSibling;
   SymbolTableEntry *typeEntry = typeNode->semantic_value.identifierSemanticValue.symbolTableEntry;
   SymbolTableEntry *entry = firstVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
   if (entry->nestingLevel == 0) { // Global Variable
@@ -1667,7 +1793,9 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
           memSize = 1;
           switch (singleVariableTD->properties.dataType) {
             case INT_TYPE:
-              fprintf(outputFile, "_GLOBAL_%s: .dword 0\n", singleVariableName);
+              // DEBUG
+              //fprintf(outputFile, "_GLOBAL_%s: .dword 0\n", singleVariableName);
+              fprintf(outputFile, "_GLOBAL_%s: .word 0\n", singleVariableName);
               break;
             case FLOAT_TYPE:
               fprintf(outputFile, "_GLOBAL_%s: .float 0\n", singleVariableName);
@@ -1711,7 +1839,9 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       SymbolTableEntry *singleVariableEntry = singleVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
       // modify new arSize
       TypeDescriptor *singleVariableTD = singleVariableEntry->attribute->attr.typeDescriptor;
-      int intSize = 8, floatSize = 4;
+      // DEBUG
+      //int intSize = 8, floatSize = 4;
+      int intSize = 4, floatSize = 4;
       int memSize = 0;
       bool isIntType = false;
       switch (singleVariableTD->kind) {
@@ -2003,7 +2133,12 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
   }
   if (variableNode->reg.isCallerSaved) {
     if (!isFloatType) {
+      // DEBUG
+      /*
       fprintf(outputFile, "sd x%d, 0(x%d)\n", exprNode->reg.registerNumber,
+                                              variableNode->reg.registerNumber);
+      */
+      fprintf(outputFile, "sw x%d, 0(x%d)\n", exprNode->reg.registerNumber,
                                               variableNode->reg.registerNumber);
     }
     else {
@@ -2036,23 +2171,15 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
                                               variableNode->reg.registerNumber);
     }
   }
-  // DEBUG
-  printf("Assign statment\n");
   if (exprNode->reg.isCallerSaved) {
     TmpOffsetFree(exprNode->reg.isFloat,
                   exprNode->offset);
     RegFree(exprNode->reg);
-    // DEBUG
-    printf("EXPR: reg %s%d is freed\n", exprNode->reg.isFloat ? "f" : "x",
-           exprNode->reg.registerNumber);
   }
   if (variableNode->reg.isCallerSaved) {
     TmpOffsetFree(variableNode->reg.isFloat,
                   variableNode->offset);
     RegFree(variableNode->reg);
-    // DEBUG
-    printf("VAR: reg %s%d is freed\n", variableNode->reg.isFloat ? "f" : "x",
-           variableNode->reg.registerNumber);
   }
 }
 
@@ -2061,7 +2188,7 @@ void CodegenIfStmt(AST_NODE *ifStmt) {
   int labelNo = ifCounter++;
   fprintf(outputFile, "## Codegen: If Stmt ##\n");
   AST_NODE *testNode = ifStmt->child;
-  CodegenExprRelated(testNode); 
+  CodegenExprRelated(testNode);
   AST_NODE *ifStmtNode = testNode->rightSibling;
   AST_NODE *elseStmtNode = ifStmtNode->rightSibling;
   if (!testNode->reg.isFloat) { // INT_TYPE
@@ -2114,23 +2241,37 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   }
   fprintf(outputFile, "## Codegen: Normal Function Call Stmt ##\n");
   RegClear();
-  fprintf(outputFile, "jal _start_%s\n", functionName);  
+  fprintf(outputFile, "jal _start_%s\n", functionName);
   SymbolTableEntry *entry = functionCallStmt->child->semantic_value.identifierSemanticValue.symbolTableEntry;
   DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
   bool isFloatType = false;
   if (returnType != VOID_TYPE) {
     switch (returnType) {
       case INT_TYPE:
+        // EDIT
+        /*
         isFloatType = false;
         functionCallStmt->reg.isFloat = false;
         functionCallStmt->reg.isCallerSaved = false;
         functionCallStmt->reg.registerNumber = 10;
+        */
+        functionCallStmt->offset = TmpOffsetGet(false);
+        functionCallStmt->reg = RegGet(false, true, functionCallStmt->offset);
+        fprintf(outputFile, "mv x%d, a0\n",
+                functionCallStmt->reg.registerNumber);
         break;
       case FLOAT_TYPE:
+        // EDIT
+        /*
         isFloatType = true;
         functionCallStmt->reg.isFloat = true;
         functionCallStmt->reg.isCallerSaved = false;
         functionCallStmt->reg.registerNumber = 10;
+        */
+        functionCallStmt->offset = TmpOffsetGet(false);
+        functionCallStmt->reg = RegGet(true, true, functionCallStmt->offset);
+        fprintf(outputFile, "fmv.s f%d, fa0\n",
+                functionCallStmt->reg.registerNumber);
         break;
       default:
         // this should not happen
@@ -2145,18 +2286,30 @@ void CodegenReadFunction(AST_NODE *readFunctionCall) {
   AST_NODE *functionId = readFunctionCall->child;
   char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
   if (!strcmp("read", functionName)) {        // return int
-    fprintf(outputFile, "call _read_int\n");  
+    fprintf(outputFile, "call _read_int\n");
     // EDIT
+    /*
     readFunctionCall->reg.isCallerSaved = false;
     readFunctionCall->reg.isFloat = false;
     readFunctionCall->reg.registerNumber = 10;
+    */
+    readFunctionCall->offset = TmpOffsetGet(false);
+    readFunctionCall->reg = RegGet(false, true, readFunctionCall->offset);
+    fprintf(outputFile, "mv x%d, a0\n",
+            readFunctionCall->reg.registerNumber);
   }
   else if (!strcmp("fread", functionName)) {  // return float
     fprintf(outputFile, "call _read_float\n");
     // EDIT
+    /*
     readFunctionCall->reg.isCallerSaved = false;
     readFunctionCall->reg.isFloat = true;
     readFunctionCall->reg.registerNumber = 10;
+    */
+    readFunctionCall->offset = TmpOffsetGet(false);
+    readFunctionCall->reg = RegGet(true, true, readFunctionCall->offset);
+    fprintf(outputFile, "fmv.s f%d, fa0\n",
+            readFunctionCall->reg.registerNumber);
   }
   else {
     // this should not happen
@@ -2206,8 +2359,6 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
           // this should not happen
           assert(0);
       }
-      // EDIT
-      //fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       if (isIntType)
         fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       else
@@ -2216,21 +2367,16 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       break;
     }
     case CONST_VALUE_NODE: {
-      // EDIT
-      //fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       switch (onlyParamNode->semantic_value.const1->const_type) {
         case INTEGERC:
-          // EDIT
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_int\n");
           break;
         case FLOATC:
-          // EDIT
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_float\n");
           break;
         case STRINGC:
-          // EDIT
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_str\n");
           break;
@@ -2243,16 +2389,12 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
     case STMT_NODE: { // FUNCTION_CALL_STMT
       SymbolTableEntry *entry = onlyParamNode->child->semantic_value.identifierSemanticValue.symbolTableEntry;
       DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
-      // EDIT
-      //fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       switch (returnType) {
         case INT_TYPE:
-          // EDIT
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_int\n");
           break;
         case FLOAT_TYPE:
-          // EDIT
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_float\n");
           break;
@@ -2265,12 +2407,13 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       break;
     }
     case EXPR_NODE: {
-      fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       switch (onlyParamNode->dataType) {
         case INT_TYPE:
+          fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_int\n");
           break;
         case FLOAT_TYPE:
+          fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
           fprintf(outputFile, "jal _write_float\n");
           break;
         default:

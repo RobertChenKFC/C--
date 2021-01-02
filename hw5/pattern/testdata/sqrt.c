@@ -6,11 +6,26 @@ float SquareRoot() {
   r = n; 
   iter = 0;
   while (r - l > 0.0001 && iter < 100) {
+    /* DEBUG */
+    write("iter ");
+    write(iter);
+    write(": ");
+    write(l);
+    write("\n");
+
     mid = 0.5 * (l + r);
     if (mid * mid < n) l = mid;
     else r = mid;
     iter = iter + 1;
   }
+
+  /* DEBUG */
+  write("iter ");
+  write(iter);
+  write(": ");
+  write(l);
+  write("\n");
+
   return l;
 }
 
@@ -21,6 +36,7 @@ int MAIN() {
     write("\n");
     n = n + 1.0;
   }
+  /*
   n = 1231283.213;
   write(SquareRoot());
   write("\n");
@@ -30,4 +46,5 @@ int MAIN() {
   n = 9.8596;
   write(SquareRoot());
   write("\n");
+  */
 }

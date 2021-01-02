@@ -12,7 +12,7 @@ for arg in sys.argv[1:]:
   }
 
   void write(float x) {
-    printf("%.10f", x);
+    printf("%f", x);
   }
 
   void write(const char *x) {
@@ -46,7 +46,8 @@ for arg in sys.argv[1:]:
     f.write(s)
 
   filename, _ = os.path.splitext(arg)
-  os.system('g++ -o TEMP_FILE TEMP_FILE.cpp')
-  os.system(f'./TEMP_FILE > {filename}.output')
-  os.system('rm TEMP_FILE TEMP_FILE.cpp')
+  os.system('riscv64-unknown-linux-gnu-g++ -o TEMP_FILE TEMP_FILE.cpp -static')
+  os.system(f'qemu-riscv64 TEMP_FILE > {filename}.output')
+  # DEBUG
+  #os.system('rm TEMP_FILE TEMP_FILE.cpp')
 

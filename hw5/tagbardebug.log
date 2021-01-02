@@ -1,0 +1,92 @@
+
+
+NVIM v0.4.4
+Build type: RelWithDebInfo
+LuaJIT 2.0.5
+Compilation: /usr/local/clang-7.0.0/bin/clang -O2 -g -DMIN_LOG_LEVEL=3 -Wall -Wextra -pedantic -Wno-unused-parameter -Wstrict-prototypes -std=gnu99 -Wshadow -Wconversion -Wmissing-prototypes -Wimplicit-fallthrough -Wvla -fstack-protector-strong -fno-common -fdiagnostics-color=auto -DINCLUDE_GENERATED_DECLARATIONS -D_GNU_SOURCE -DNVIM_MSGPACK_HAS_FLOAT32 -DNVIM_UNIBI_HAS_VAR_FROM -I/home/travis/build/neovim/bot-ci/build/neovim/build/config -I/home/travis/build/neovim/bot-ci/build/neovim/src -I/home/travis/build/neovim/bot-ci/build/neovim/.deps/usr/include -I/usr/include -I/home/travis/build/neovim/bot-ci/build/neovim/build/src/nvim/auto -I/home/travis/build/neovim/bot-ci/build/neovim/build/include
+Compiled by travis@travis-job-d8a0d531-236d-4d4c-9703-9d6e27bee65f
+
+Features: +acl +iconv +tui
+See ":help feature-compile"
+
+   system vimrc file: "$VIM/sysinit.vim"
+  fall-back for $VIM: "/home/travis/build/neovim/bot-ci/build/neovim/build/nvim.AppDir/usr/share/nvim"
+
+Run :checkhealth for more info1970-01-06 23:53:53.475405: AutoUpdate called [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.475580: Vim filetype: 'c', sanitized filetype: 'c'
+1970-01-06 23:53:53.475656: Checking if file is valid [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.475851: New file, processing [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.475930: ProcessFile called [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.476001: Checking if file is valid [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.476799: typeinfo for file to process: {'ctagstype': 'c', 'ftype': 'c', 'kinddict': {'p': 2, 'f': 10, 's': 6, 'd': 1, 'e': 4, 'v': 9, 'g': 3, 'h': 0, 't': 5, '?': 11, 'm': 8, 'u': 7}, 'sro': '::', 'createKinddict': function('<SNR>82_createKinddict'), 'getKind': function('<SNR>82_getKind'), 'kind2scope': {'s': 'struct', 'u': 'union', 'g': 'enum', '?': 'unknown'}, 'scope2kind': {'enum': 'g', 'struct': 's', 'union': 'u'}, 'kinds': [{'short': 'h', 'long': 'header files', 'fold': 1, 'stl': 0}, {'short': 'd', 'long': 'macros', 'fold': 1, 'stl': 0}, {'short': 'p', 'long': 'prototypes', 'fold': 1, 'stl': 0}, {'short': 'g', 'long': 'enums', 'fold': 0, 'stl': 1}, {'short': 'e', 'long': 'enumerators', 'fold': 0, 'stl': 0}, {'short': 't', 'long': 'typedefs', 'fold': 0, 'stl': 0}, {'short': 's', 'long': 'structs', 'fold': 0, 'stl': 1}, {'short': 'u', 'long': 'unions', 'fold': 0, 'stl': 1}, {'short': 'm', 'long': 'members', 'fold': 0, 'stl': 0}, {'short': 'v', 'long': 'variables', 'fold': 0, 'stl': 0}, {'short': 'f', 'long': 'functions', 'fold': 0, 'stl': 1}, {'short': '?', 'long': 'unknown', 'fold': 0, 'stl': 1}]}
+1970-01-06 23:53:53.476969: Caching file into: /tmp/nvimqqFgyc/2.c
+1970-01-06 23:53:53.478154: ExecuteCtagsOnFile called [/tmp/nvimqqFgyc/2.c]
+1970-01-06 23:53:53.478356: EscapeCtagsCmd called
+1970-01-06 23:53:53.478410: ctags_bin: ctags
+1970-01-06 23:53:53.478472: ctags_args (is a list): ['--extras=+F', '-f', '-', '--format=2', '--excmd=pattern', '--fields=nksSafet', '--sort=no', '--append=no', '-V', '--language-force=c', '--c-kinds=hdpgetsumvf']
+1970-01-06 23:53:53.478641: Escaped ctags command: 'ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/2.c'
+1970-01-06 23:53:53.478723: Executing ctags command: 'ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/2.c'
+1970-01-06 23:53:53.529705: Executing command: "'/bin/bash' '-c' ''ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/2.c''"
+1970-01-06 23:53:53.529768: Exit code: 0
+1970-01-06 23:53:53.550025: Command output:
+1970-01-06 23:53:53.550071:   Option: --language-force=c
+  Option: --c-kinds=hdpgetsumvf
+Initialize parser: C
+Reading command line arguments
+ctags: Warning: cannot open input file "/tmp/nvimqqFgyc/2.c" : No such file or directory
+
+1970-01-06 23:53:53.550118: Exit code: 0
+1970-01-06 23:53:53.550282: Ctags error when processing file
+1970-01-06 23:53:53.550537: fileinfo empty after processing [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.551585: AutoUpdate called [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.551650: Vim filetype: 'c', sanitized filetype: 'c'
+1970-01-06 23:53:53.551686: Checking if file is valid [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.551774: File data outdated, updating [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.551807: ProcessFile called [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.551838: Checking if file is valid [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.552097: typeinfo for file to process: {'ctagstype': 'c', 'ftype': 'c', 'kinddict': {'p': 2, 'f': 10, 's': 6, 'd': 1, 'e': 4, 'v': 9, 'g': 3, 'h': 0, 't': 5, '?': 11, 'm': 8, 'u': 7}, 'sro': '::', 'createKinddict': function('<SNR>82_createKinddict'), 'getKind': function('<SNR>82_getKind'), 'kind2scope': {'s': 'struct', 'u': 'union', 'g': 'enum', '?': 'unknown'}, 'scope2kind': {'enum': 'g', 'struct': 's', 'union': 'u'}, 'kinds': [{'short': 'h', 'long': 'header files', 'fold': 1, 'stl': 0}, {'short': 'd', 'long': 'macros', 'fold': 1, 'stl': 0}, {'short': 'p', 'long': 'prototypes', 'fold': 1, 'stl': 0}, {'short': 'g', 'long': 'enums', 'fold': 0, 'stl': 1}, {'short': 'e', 'long': 'enumerators', 'fold': 0, 'stl': 0}, {'short': 't', 'long': 'typedefs', 'fold': 0, 'stl': 0}, {'short': 's', 'long': 'structs', 'fold': 0, 'stl': 1}, {'short': 'u', 'long': 'unions', 'fold': 0, 'stl': 1}, {'short': 'm', 'long': 'members', 'fold': 0, 'stl': 0}, {'short': 'v', 'long': 'variables', 'fold': 0, 'stl': 0}, {'short': 'f', 'long': 'functions', 'fold': 0, 'stl': 1}, {'short': '?', 'long': 'unknown', 'fold': 0, 'stl': 1}]}
+1970-01-06 23:53:53.552172: Caching file into: /tmp/nvimqqFgyc/3.c
+1970-01-06 23:53:53.552719: ExecuteCtagsOnFile called [/tmp/nvimqqFgyc/3.c]
+1970-01-06 23:53:53.552830: EscapeCtagsCmd called
+1970-01-06 23:53:53.552859: ctags_bin: ctags
+1970-01-06 23:53:53.552892: ctags_args (is a list): ['--extras=+F', '-f', '-', '--format=2', '--excmd=pattern', '--fields=nksSafet', '--sort=no', '--append=no', '-V', '--language-force=c', '--c-kinds=hdpgetsumvf']
+1970-01-06 23:53:53.552990: Escaped ctags command: 'ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/3.c'
+1970-01-06 23:53:53.553033: Executing ctags command: 'ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/3.c'
+1970-01-06 23:53:53.602873: Executing command: "'/bin/bash' '-c' ''ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/3.c''"
+1970-01-06 23:53:53.602937: Exit code: 0
+1970-01-06 23:53:53.605908: Command output:
+1970-01-06 23:53:53.605949:   Option: --language-force=c
+  Option: --c-kinds=hdpgetsumvf
+Initialize parser: C
+Reading command line arguments
+ctags: Warning: cannot open input file "/tmp/nvimqqFgyc/3.c" : No such file or directory
+
+1970-01-06 23:53:53.605985: Exit code: 0
+1970-01-06 23:53:53.606073: Ctags error when processing file
+1970-01-06 23:53:53.606355: fileinfo empty after processing [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.606562: AutoUpdate called [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.606620: Vim filetype: 'c', sanitized filetype: 'c'
+1970-01-06 23:53:53.606653: Checking if file is valid [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.606738: File data outdated, updating [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.606771: ProcessFile called [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.606808: Checking if file is valid [/home/robert/ntu/compiler/C--/hw5/codegen.c]
+1970-01-06 23:53:53.607069: typeinfo for file to process: {'ctagstype': 'c', 'ftype': 'c', 'kinddict': {'p': 2, 'f': 10, 's': 6, 'd': 1, 'e': 4, 'v': 9, 'g': 3, 'h': 0, 't': 5, '?': 11, 'm': 8, 'u': 7}, 'sro': '::', 'createKinddict': function('<SNR>82_createKinddict'), 'getKind': function('<SNR>82_getKind'), 'kind2scope': {'s': 'struct', 'u': 'union', 'g': 'enum', '?': 'unknown'}, 'scope2kind': {'enum': 'g', 'struct': 's', 'union': 'u'}, 'kinds': [{'short': 'h', 'long': 'header files', 'fold': 1, 'stl': 0}, {'short': 'd', 'long': 'macros', 'fold': 1, 'stl': 0}, {'short': 'p', 'long': 'prototypes', 'fold': 1, 'stl': 0}, {'short': 'g', 'long': 'enums', 'fold': 0, 'stl': 1}, {'short': 'e', 'long': 'enumerators', 'fold': 0, 'stl': 0}, {'short': 't', 'long': 'typedefs', 'fold': 0, 'stl': 0}, {'short': 's', 'long': 'structs', 'fold': 0, 'stl': 1}, {'short': 'u', 'long': 'unions', 'fold': 0, 'stl': 1}, {'short': 'm', 'long': 'members', 'fold': 0, 'stl': 0}, {'short': 'v', 'long': 'variables', 'fold': 0, 'stl': 0}, {'short': 'f', 'long': 'functions', 'fold': 0, 'stl': 1}, {'short': '?', 'long': 'unknown', 'fold': 0, 'stl': 1}]}
+1970-01-06 23:53:53.607146: Caching file into: /tmp/nvimqqFgyc/4.c
+1970-01-06 23:53:53.607730: ExecuteCtagsOnFile called [/tmp/nvimqqFgyc/4.c]
+1970-01-06 23:53:53.607844: EscapeCtagsCmd called
+1970-01-06 23:53:53.607874: ctags_bin: ctags
+1970-01-06 23:53:53.607908: ctags_args (is a list): ['--extras=+F', '-f', '-', '--format=2', '--excmd=pattern', '--fields=nksSafet', '--sort=no', '--append=no', '-V', '--language-force=c', '--c-kinds=hdpgetsumvf']
+1970-01-06 23:53:53.608007: Escaped ctags command: 'ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/4.c'
+1970-01-06 23:53:53.608051: Executing ctags command: 'ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/4.c'
+1970-01-06 23:53:53.652172: Executing command: "'/bin/bash' '-c' ''ctags' '--extras=+F' '-f' '-' '--format=2' '--excmd=pattern' '--fields=nksSafet' '--sort=no' '--append=no' '-V' '--language-force=c' '--c-kinds=hdpgetsumvf' '/tmp/nvimqqFgyc/4.c''"
+1970-01-06 23:53:53.652238: Exit code: 0
+1970-01-06 23:53:53.655088: Command output:
+1970-01-06 23:53:53.655128:   Option: --language-force=c
+  Option: --c-kinds=hdpgetsumvf
+Initialize parser: C
+Reading command line arguments
+ctags: Warning: cannot open input file "/tmp/nvimqqFgyc/4.c" : No such file or directory
+
+1970-01-06 23:53:53.655162: Exit code: 0
+1970-01-06 23:53:53.655252: Ctags error when processing file
+1970-01-06 23:53:53.655579: fileinfo empty after processing [/home/robert/ntu/compiler/C--/hw5/codegen.c]

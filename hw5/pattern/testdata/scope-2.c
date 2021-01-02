@@ -20,6 +20,7 @@ int MAIN() {
       write(b[99]);
     }
   }
+  /* this seems incorrect... */
   write(a[0]);
   write(b[99]);
 }
