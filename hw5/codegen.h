@@ -12,6 +12,36 @@ void RegClear();
 Reg RegGet(bool isFloat, bool isCallerSaved, int offset);
 void RegFree(Reg reg);
 Reg RegRestore(Reg oldReg, int offset);
+/* Note: the following is a new function for function argument registers */
+/**
+ * This function "RegGetParam" should be called when dealing with function
+ * declarations. It should be called in the order of the function parameters
+ * listed, and this function will return, in order, the function argument
+ * registers.
+ *
+ * For instance, consider the following function declaration:
+ *   void f(int p1, float p2, int p3, float p4) {}
+ * Then, the following function calls should be made:
+ *   <register for p1> = RegGetParam(false, <offset of p1>);
+ *   <register for p2> = RegGetParam(true,  <offset of p2>);
+ *   <register for p3> = RegGetParam(false, <offset of p3>);
+ *   <register for p4> = RegGetParam(true,  <offset of p4>);
+ * Note that for the parameters, the following argument registers are assigned:
+ *   p1:  a0
+ *   p2: fa0
+ *   p3:  a1
+ *   p4: fa1
+ *
+ * After a register is acquired via RegGetParam, it will not be obtainble
+ * from subsequent RegGet or RegGetParam calls. The register acquired from
+ * RegGetParam is a caller saved register, and should be handled with the same
+ * care as normal caller saved registers (for instance, the register will be
+ * spilled when encountering a function call, thus one must remember to call
+ * RegRestore afterwards).
+ *
+ * This function should be called AFTER RegReset has been called.
+ */
+Reg RegGetParam(bool isFloat, int offset);
 /* =========== register manager ========== */
 
 /* =========== label convention ========== */
@@ -25,6 +55,9 @@ extern int whileCounter;
 extern int forCounter;
 /* If:              _ELSE_LABEL_<ifCounter>,      _IF_EXIT_<ifCounter>        */
 extern int ifCounter;
+/* Skip branch:     _SKIP_<skipCounter>                                       */
+/* Note: this is added to support long branches                               */
+extern int skipCounter;
 /* Function:        _start_<functionName>,        _FUNCTION_END_<functionName>*/
 /* Global variable: _GLOBAL_<variableName>                                    */
 /* AR size:         _FRAME_SIZE_<functionName>                                */
@@ -65,6 +98,24 @@ void CodegenUnaryArithmeticExpr(AST_NODE *exprNode);
 void CodegenBinaryBooleanExpr(AST_NODE *exprNode);
 void CodegenBinaryArithmeticExpr(AST_NODE *exprNode);
 void CodegenShortCircuitArithmeticExpr(AST_NODE *exprNode);
+/* Branches */
+typedef enum {
+  BEQZ,
+  BNEZ,
+  BEQ,
+  BNE,
+  BLT,
+  BLE,
+  BGT,
+  BGE
+} BranchInst;
+void CodegenJumpLabel(const char *label);
+void CodegenJumpLabelNo(const char *label, int labelNo);
+void CodegenJumpLabelStr(const char *label, const char *str);
+void CodegenBranchZero(BranchInst inst, int reg,
+                       const char *label, int labelNo);
+void CodegenBranch(BranchInst inst, int reg1, int reg2,
+                   const char *label, int labelNo);
 /* =========== code generation ========== */
 
 #endif // CODEGEN_H

@@ -12,6 +12,7 @@ int booleanCounter = 0;
 int whileCounter = 0;
 int forCounter = 0;
 int ifCounter = 0;
+int skipCounter = 0;
 int arSize = 0;
 FILE *outputFile;
 
@@ -354,11 +355,6 @@ void RegClear() {
   }
 }
 
-// DEBUG
-/*
-int RegGetImpl(bool isFloat, int *registerOffsets,
-               List *freeRegisters, List *usedRegisters, int offset) {
-*/
 int RegGetImpl(bool isFloat, bool isCallerSaved, int *registerOffsets,
                List *freeRegisters, List *usedRegisters, int offset) {
   if (ListEmpty(freeRegisters)) {
@@ -371,11 +367,8 @@ int RegGetImpl(bool isFloat, bool isCallerSaved, int *registerOffsets,
       // encountered, this means that the register has already been saved.
       if (isFloat)
         fprintf(outputFile, "fsw f%d, %d(fp)\n", spillRegister, spillOffset);
-      // DEBUG
-      //else
       else if (isCallerSaved)
         fprintf(outputFile, "sd x%d, %d(fp)\n", spillRegister, spillOffset);
-      // DEBUG
       else
         fprintf(outputFile, "sw x%d, %d(fp)\n", spillRegister, spillOffset);
     }
@@ -394,26 +387,12 @@ Reg RegGet(bool isFloat, bool isCallerSaved, int offset) {
   if (isFloat) {
     if (isCallerSaved) {
       // float caller saved register
-      // DEBUG
-      /*
-      newRegister.registerNumber = RegGetImpl(
-          true, floatCallerSavedRegisterOffsets,
-          freeFloatCallerSavedRegisters, usedFloatCallerSavedRegisters,
-          offset);
-      */
       newRegister.registerNumber = RegGetImpl(
           true, true, floatCallerSavedRegisterOffsets,
           freeFloatCallerSavedRegisters, usedFloatCallerSavedRegisters,
           offset);
     } else {
       // float callee saved register
-      // DEBUG
-      /*
-      newRegister.registerNumber = RegGetImpl(
-          true, floatCalleeSavedRegisterOffsets,
-          freeFloatCalleeSavedRegisters, usedFloatCalleeSavedRegisters,
-          offset);
-      */
       newRegister.registerNumber = RegGetImpl(
           true, false, floatCalleeSavedRegisterOffsets,
           freeFloatCalleeSavedRegisters, usedFloatCalleeSavedRegisters,
@@ -422,26 +401,12 @@ Reg RegGet(bool isFloat, bool isCallerSaved, int offset) {
   } else {
     if (isCallerSaved) {
       // int caller saved register
-      // DEBUG
-      /*
-      newRegister.registerNumber = RegGetImpl(
-          false, intCallerSavedRegisterOffsets,
-          freeIntCallerSavedRegisters, usedIntCallerSavedRegisters,
-          offset);
-      */
       newRegister.registerNumber = RegGetImpl(
           false, true, intCallerSavedRegisterOffsets,
           freeIntCallerSavedRegisters, usedIntCallerSavedRegisters,
           offset);
     } else {
       // int caller saved register
-      // DEBUG
-      /*
-      newRegister.registerNumber = RegGetImpl(
-          false, intCalleeSavedRegisterOffsets,
-          freeIntCalleeSavedRegisters, usedIntCalleeSavedRegisters,
-          offset);
-      */
       newRegister.registerNumber = RegGetImpl(
           false, false, intCalleeSavedRegisterOffsets,
           freeIntCalleeSavedRegisters, usedIntCalleeSavedRegisters,
@@ -449,6 +414,10 @@ Reg RegGet(bool isFloat, bool isCallerSaved, int offset) {
     }
   }
   return newRegister;
+}
+
+Reg RegGetParam(bool isFloat, int offset) {
+  // TODO: finish implementation
 }
 
 void RegFreeImpl(int registerNumber,
@@ -483,12 +452,6 @@ void RegFree(Reg reg) {
   }
 }
 
-// DEBUG
-/*
-int RegRestoreImpl(int oldRegisterNumber, bool isFloat, int *registerOffsets,
-                   List *freeRegisters, List *usedRegisters,
-                   int offset) {
-*/
 int RegRestoreImpl(int oldRegisterNumber, bool isFloat, bool isCallerSaved,
                    int *registerOffsets,
                    List *freeRegisters, List *usedRegisters,
@@ -496,23 +459,14 @@ int RegRestoreImpl(int oldRegisterNumber, bool isFloat, bool isCallerSaved,
   if (registerOffsets[oldRegisterNumber] == offset)
     return oldRegisterNumber;
 
-  // DEBUG
-  /*
-  int newRegisterNumber = RegGetImpl(isFloat, registerOffsets,
-                                     freeRegisters, usedRegisters,
-                                     offset);
-  */
   int newRegisterNumber = RegGetImpl(isFloat, isCallerSaved, registerOffsets,
                                      freeRegisters, usedRegisters,
                                      offset);
 
   if (isFloat)
     fprintf(outputFile, "flw f%d, %d(fp)\n", newRegisterNumber, offset);
-  // DEBUG
-  //else
   else if (isCallerSaved)
     fprintf(outputFile, "ld x%d, %d(fp)\n", newRegisterNumber, offset);
-  // DEBUG
   else
     fprintf(outputFile, "lw x%d, %d(fp)\n", newRegisterNumber, offset);
   return newRegisterNumber;
@@ -523,13 +477,6 @@ Reg RegRestore(Reg oldReg, int offset) {
   if (oldReg.isFloat) {
     if (oldReg.isCallerSaved) {
       // float caller saved register
-      // DEBUG
-      /*
-      newReg.registerNumber = RegRestoreImpl(
-          oldReg.registerNumber, true, floatCallerSavedRegisterOffsets,
-          freeFloatCallerSavedRegisters, usedFloatCallerSavedRegisters,
-          offset);
-      */
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, true, true,
           floatCallerSavedRegisterOffsets, freeFloatCallerSavedRegisters,
@@ -537,13 +484,6 @@ Reg RegRestore(Reg oldReg, int offset) {
           offset);
     } else {
       // float callee saved register
-      // DEBUG
-      /*
-      newReg.registerNumber = RegRestoreImpl(
-          oldReg.registerNumber, true, floatCalleeSavedRegisterOffsets,
-          freeFloatCalleeSavedRegisters, usedFloatCalleeSavedRegisters,
-          offset);
-      */
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, true, false,
           floatCalleeSavedRegisterOffsets, freeFloatCalleeSavedRegisters,
@@ -552,13 +492,6 @@ Reg RegRestore(Reg oldReg, int offset) {
   } else {
     if (oldReg.isCallerSaved) {
       // int caller saved register
-      // DEBUG
-      /*
-      newReg.registerNumber = RegRestoreImpl(
-          oldReg.registerNumber, false, intCallerSavedRegisterOffsets,
-          freeIntCallerSavedRegisters, usedIntCallerSavedRegisters,
-          offset);
-      */
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, false, true,
           intCallerSavedRegisterOffsets, freeIntCallerSavedRegisters,
@@ -566,13 +499,6 @@ Reg RegRestore(Reg oldReg, int offset) {
           offset);
     } else {
       // int callee saved register
-      // DEBUG
-      /*
-      newReg.registerNumber = RegRestoreImpl(
-          oldReg.registerNumber, false, intCalleeSavedRegisterOffsets,
-          freeIntCalleeSavedRegisters, usedIntCalleeSavedRegisters,
-          offset);
-      */
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, false, false,
           intCalleeSavedRegisterOffsets, freeIntCalleeSavedRegisters,
@@ -676,7 +602,7 @@ void CodegenFunctionEpilogue(AST_NODE *functionNode) {
   fprintf(outputFile, "ld ra, 8(fp)\n");
   fprintf(outputFile, "addi fp, sp, -8\n");
   fprintf(outputFile, "ld fp, 0(fp)\n");
-  fprintf(outputFile, "jr ra\n");
+  fprintf(outputFile, "ret\n");
   fprintf(outputFile, ".data\n");
   // TODO: Is the newline character necessary?
   fprintf(outputFile, "_FRAME_SIZE_%s: .word %d\n", functionName, arSize);
@@ -738,11 +664,6 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
             fprintf(outputFile, "la x%d, _GLOBAL_%s\n",
                     varRef->reg.registerNumber, id->identifierName);
             if (!isLValue)
-              // DEBUG
-              /*
-              fprintf(outputFile, "ld x%d, 0(x%d)\n",
-                      varRef->reg.registerNumber, varRef->reg.registerNumber);
-              */
               fprintf(outputFile, "lw x%d, 0(x%d)\n",
                       varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
@@ -779,11 +700,6 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
             case FLOAT_PTR_TYPE:
               entry->reg = RegGet(false, false, entry->offset);
               if (!isLValue)
-                // DEBUG
-                /*
-                fprintf(outputFile, "ld x%d, %d(fp)\n",
-                        entry->reg.registerNumber, entry->offset);
-                */
                 fprintf(outputFile, "lw x%d, %d(fp)\n",
                         entry->reg.registerNumber, entry->offset);
               break;
@@ -837,25 +753,8 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
           RegFree(dimNode->reg);
         }
       }
-      // DEBUG
-      /*
-      switch (arrayProperties->elementType) {
-        case INT_TYPE:
-          fprintf(outputFile, "slli x%d, x%d, 3\n",
-                  vpReg.registerNumber, vpReg.registerNumber);
-          break;
-        case FLOAT_TYPE:
-      */
-          fprintf(outputFile, "slli x%d, x%d, 2\n",
-                  vpReg.registerNumber, vpReg.registerNumber);
-      // DEBUG
-      /*
-          break;
-        default:
-          // this should not happen
-          assert(0);
-      }
-      */
+      fprintf(outputFile, "slli x%d, x%d, 2\n",
+              vpReg.registerNumber, vpReg.registerNumber);
 
       // add base address to variable part and load
       if (entry->nestingLevel == 0) {
@@ -872,11 +771,6 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
                 varRef->reg.registerNumber, varRef->reg.registerNumber,
                 vpReg.registerNumber);
             if (!isLValue)
-              // DEBUG
-              /*
-              fprintf(outputFile, "ld x%d, 0(x%d)\n",
-                  varRef->reg.registerNumber, varRef->reg.registerNumber);
-              */
               fprintf(outputFile, "lw x%d, 0(x%d)\n",
                   varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
@@ -936,11 +830,6 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
                 varRef->reg.registerNumber, varRef->reg.registerNumber,
                 vpReg.registerNumber);
             if (!isLValue)
-              // DEBUG
-              /*
-              fprintf(outputFile, "ld x%d, 0(x%d)\n",
-                  varRef->reg.registerNumber, varRef->reg.registerNumber);
-              */
               fprintf(outputFile, "lw x%d, 0(x%d)\n",
                   varRef->reg.registerNumber, varRef->reg.registerNumber);
             break;
@@ -993,11 +882,6 @@ void CodegenConstValue(AST_NODE *constValue) {
       constValue->offset = TmpOffsetGet(false);
       constValue->reg = RegGet(false, true, constValue->offset);
       fprintf(outputFile, ".data\n");
-      // DEBUG
-      /*
-      fprintf(outputFile, "_CONSTANT_%d: .dword %d\n",
-          constantLabelNo, val->const_u.intval);
-      */
       fprintf(outputFile, "_CONSTANT_%d: .word %d\n",
           constantLabelNo, val->const_u.intval);
       // TODO: verify that .align 2 (4 byte alignment) is correct; for some
@@ -1111,12 +995,13 @@ void CodegenUnaryBooleanExpr(AST_NODE *exprNode) {
         // parent is a short circuit expression and child doesn't short circuit,
         // then current level has to do the short circuit
         exprNode->reg.registerNumber = NUL_REG;
-        if (exprNode->shortOnFalse)
-          fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-              exprNode->child->reg.registerNumber, exprNode->parentLabelNo);
-        else
-          fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-              exprNode->child->reg.registerNumber, exprNode->parentLabelNo);
+        if (exprNode->shortOnFalse) {
+          CodegenBranchZero(BNEZ, exprNode->child->reg.registerNumber,
+                            "_BOOL_SHORT_", exprNode->parentLabelNo);
+        } else {
+          CodegenBranchZero(BEQZ, exprNode->child->reg.registerNumber,
+                            "_BOOL_SHORT_", exprNode->parentLabelNo);
+        }
       }
       break;
     default:
@@ -1265,6 +1150,7 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
     }
   }
 
+  exprNode->dataType = INT_TYPE;
   switch (expr->op.binaryOp) {
     case BINARY_OP_EQ:
       if (leftExprNode->reg.isFloat) {
@@ -1278,12 +1164,13 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         if (exprNode->parentLabelNo != NUL_LABEL) {
           // parent is short circuit expression, then generate short circuit
           // based on calculated value
-          if (exprNode->shortOnFalse)
-            fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
-          else
-            fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
+          if (exprNode->shortOnFalse) {
+            CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          } else {
+            CodegenBranchZero(BNEZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          }
         }
       } else if (exprNode->parentLabelNo == NUL_LABEL) {
         // left and right operands are int, and parent is not a short circuit
@@ -1301,16 +1188,15 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         // left and right operands are int, and parent is a short circuit
         // expression, then directly compare and perform short circuit
         exprNode->reg.registerNumber = NUL_REG;
-        if (exprNode->shortOnFalse)
-          fprintf(outputFile, "bne x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
-        else
-          fprintf(outputFile, "beq x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
+        if (exprNode->shortOnFalse) {
+          CodegenBranch(BNE, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        } else {
+          CodegenBranch(BEQ, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        }
       }
       break;
     case BINARY_OP_NE:
@@ -1329,12 +1215,13 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         if (exprNode->parentLabelNo != NUL_LABEL) {
           // parent is short circuit expression, then generate short circuit
           // based on calculated value
-          if (exprNode->shortOnFalse)
-            fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
-          else
-            fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
+          if (exprNode->shortOnFalse) {
+            CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          } else {
+            CodegenBranchZero(BNEZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          }
         }
       } else if (exprNode->parentLabelNo == NUL_LABEL) {
         // left and right operands are int, and parent is not a short circuit
@@ -1352,16 +1239,15 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         // left and right operands are int, and parent is a short circuit
         // expression, then directly compare and perform short circuit
         exprNode->reg.registerNumber = NUL_REG;
-        if (exprNode->shortOnFalse)
-          fprintf(outputFile, "beq x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
-        else
-          fprintf(outputFile, "bne x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
+        if (exprNode->shortOnFalse) {
+          CodegenBranch(BEQ, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        } else {
+          CodegenBranch(BNE, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        }
       }
       break;
     case BINARY_OP_GE:
@@ -1376,12 +1262,13 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         if (exprNode->parentLabelNo != NUL_LABEL) {
           // parent is short circuit expression, then generate short circuit
           // based on calculated value
-          if (exprNode->shortOnFalse)
-            fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
-          else
-            fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
+          if (exprNode->shortOnFalse) {
+            CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          } else {
+            CodegenBranchZero(BNEZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          }
         }
       } else if (exprNode->parentLabelNo == NUL_LABEL) {
         // left and right operands are int, and parent is not a short circuit
@@ -1399,16 +1286,15 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         // left and right operands are int, and parent is a short circuit
         // expression, then directly compare and perform short circuit
         exprNode->reg.registerNumber = NUL_REG;
-        if (exprNode->shortOnFalse)
-          fprintf(outputFile, "blt x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
-        else
-          fprintf(outputFile, "bge x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
+        if (exprNode->shortOnFalse) {
+          CodegenBranch(BLT, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        } else {
+          CodegenBranch(BGE, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        }
       }
       break;
     case BINARY_OP_LE:
@@ -1423,12 +1309,13 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         if (exprNode->parentLabelNo != NUL_LABEL) {
           // parent is short circuit expression, then generate short circuit
           // based on calculated value
-          if (exprNode->shortOnFalse)
-            fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
-          else
-            fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
+          if (exprNode->shortOnFalse) {
+            CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->reg.registerNumber);
+          } else {
+            CodegenBranchZero(BNEZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          }
         }
       } else if (exprNode->parentLabelNo == NUL_LABEL) {
         // left and right operands are int, and parent is not a short circuit
@@ -1446,16 +1333,15 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         // left and right operands are int, and parent is a short circuit
         // expression, then directly compare and perform short circuit
         exprNode->reg.registerNumber = NUL_REG;
-        if (exprNode->shortOnFalse)
-          fprintf(outputFile, "bgt x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
-        else
-          fprintf(outputFile, "ble x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
+        if (exprNode->shortOnFalse) {
+          CodegenBranch(BGT, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        } else {
+          CodegenBranch(BLE, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        }
       }
       break;
     case BINARY_OP_GT:
@@ -1470,12 +1356,13 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         if (exprNode->parentLabelNo != NUL_LABEL) {
           // parent is short circuit expression, then generate short circuit
           // based on calculated value
-          if (exprNode->shortOnFalse)
-            fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
-          else
-            fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
+          if (exprNode->shortOnFalse) {
+            CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          } else {
+            CodegenBranchZero(BNEZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          }
         }
       } else if (exprNode->parentLabelNo == NUL_LABEL) {
         // left and right operands are int, and parent is not a short circuit
@@ -1490,16 +1377,15 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         // left and right operands are int, and parent is a short circuit
         // expression, then directly compare and perform short circuit
         exprNode->reg.registerNumber = NUL_REG;
-        if (exprNode->shortOnFalse)
-          fprintf(outputFile, "ble x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
-        else
-          fprintf(outputFile, "bgt x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
+        if (exprNode->shortOnFalse) {
+          CodegenBranch(BLE, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        } else {
+          CodegenBranch(BGT, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        }
       }
       break;
     case BINARY_OP_LT:
@@ -1514,12 +1400,13 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         if (exprNode->parentLabelNo != NUL_LABEL) {
           // parent is short circuit expression, then generate short circuit
           // based on calculated value
-          if (exprNode->shortOnFalse)
-            fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
-          else
-            fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-                exprNode->reg.registerNumber, exprNode->parentLabelNo);
+          if (exprNode->shortOnFalse) {
+            CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          } else {
+            CodegenBranchZero(BNEZ, exprNode->reg.registerNumber,
+                              "_BOOL_SHORT_", exprNode->parentLabelNo);
+          }
         }
       } else if (exprNode->parentLabelNo == NUL_LABEL) {
         // left and right operands are int, and parent is not a short circuit
@@ -1534,16 +1421,15 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         // left and right operands are int, and parent is a short circuit
         // expression, then directly compare and perform short circuit
         exprNode->reg.registerNumber = NUL_REG;
-        if (exprNode->shortOnFalse)
-          fprintf(outputFile, "bge x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
-        else
-          fprintf(outputFile, "blt x%d, x%d, _BOOL_SHORT_%d\n",
-              leftExprNode->reg.registerNumber,
-              rightExprNode->reg.registerNumber,
-              exprNode->parentLabelNo);
+        if (exprNode->shortOnFalse) {
+          CodegenBranch(BGE, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        } else {
+          CodegenBranch(BLT, leftExprNode->reg.registerNumber,
+                        rightExprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+        }
       }
       break;
     case BINARY_OP_AND:
@@ -1554,15 +1440,15 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         exprNode->offset = TmpOffsetGet(false);
         exprNode->reg = RegGet(false, true, exprNode->offset);
         fprintf(outputFile, "addi x%d, x0, 1\n", exprNode->reg.registerNumber);
-        fprintf(outputFile, "j _BOOL_EXIT_%d\n", labelNo);
+        CodegenJumpLabelNo("_BOOL_EXIT_", labelNo);
       } else if (exprNode->shortOnFalse) {
         // parent is a short circuit expression and it shorts on false, then
         // exit the current boolean expression
-        fprintf(outputFile, "j _BOOL_EXIT_%d\n", labelNo);
+        CodegenJumpLabelNo("_BOOL_EXIT_", labelNo);
       } else {
         // parent is a short circuit expression and it shorts on true, then
         // directly jump
-        fprintf(outputFile, "j _BOOL_SHORT_%d\n", exprNode->parentLabelNo);
+        CodegenJumpLabelNo("_BOOL_SHORT_", exprNode->parentLabelNo);
       }
       // short circuit code, which corresponds to false
       fprintf(outputFile, "_BOOL_SHORT_%d:\n", labelNo);
@@ -1573,7 +1459,7 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
       } else if (exprNode->shortOnFalse) {
         // parent is a short circuit expression and it shorts on false, then
         // directly jump
-        fprintf(outputFile, "j _BOOL_SHORT_%d\n", exprNode->parentLabelNo);
+        CodegenJumpLabelNo("_BOOL_SHORT_", exprNode->parentLabelNo);
       }
       fprintf(outputFile, "_BOOL_EXIT_%d:\n", labelNo);
       break;
@@ -1585,15 +1471,16 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
         exprNode->offset = TmpOffsetGet(false);
         exprNode->reg = RegGet(false, true, exprNode->offset);
         fprintf(outputFile, "mv x%d, x0\n", exprNode->reg.registerNumber);
-        fprintf(outputFile, "j _BOOL_EXIT_%d\n", labelNo);
+        CodegenJumpLabelNo("_BOOL_EXIT_", labelNo);
       } else if (exprNode->shortOnFalse) {
         // parent is a short circuit expression and it shorts on false, then
         // directly jump
-        fprintf(outputFile, "j _BOOL_SHORT_%d\n", exprNode->parentLabelNo);
+        //fprintf(outputFile, "j _BOOL_SHORT_%d\n", exprNode->parentLabelNo);
+        CodegenJumpLabelNo("_BOOL_SHORT_", exprNode->parentLabelNo);
       } else {
         // parent is a short circuit expression and it shorts on true, then
         // exit the current boolean expression
-        fprintf(outputFile, "j _BOOL_EXIT_%d\n", labelNo);
+        CodegenJumpLabelNo("_BOOL_EXIT_", labelNo);
       }
       // short circuit code, which corresponds to true
       fprintf(outputFile, "_BOOL_SHORT_%d:\n", labelNo);
@@ -1604,7 +1491,7 @@ void CodegenBinaryBooleanExpr(AST_NODE *exprNode) {
       } else if (!exprNode->shortOnFalse) {
         // parent is a short circuit expression and it shorts on true, then
         // directly jump
-        fprintf(outputFile, "j _BOOL_SHORT_%d\n", exprNode->parentLabelNo);
+        CodegenJumpLabelNo("_BOOL_SHORT_", exprNode->parentLabelNo);
       }
       fprintf(outputFile, "_BOOL_EXIT_%d:\n", labelNo);
       break;
@@ -1716,20 +1603,22 @@ void CodegenShortCircuitArithmeticExpr(AST_NODE *exprNode) {
     // we use a bit mask 24 (11000 in binary) to check if either bit is set
     fprintf(outputFile, "andi x%d, x%d, 24\n",
         condReg.registerNumber, condReg.registerNumber);
-    if (exprNode->shortOnFalse)
-      fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-          condReg.registerNumber, exprNode->parentLabelNo);
-    else
-      fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-          condReg.registerNumber, exprNode->parentLabelNo);
+    if (exprNode->shortOnFalse) {
+      CodegenBranchZero(BNEZ, condReg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+    } else {
+      CodegenBranchZero(BEQZ, condReg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+    }
     RegFree(condReg);
   } else {
-    if (exprNode->shortOnFalse)
-      fprintf(outputFile, "beqz x%d, _BOOL_SHORT_%d\n",
-          exprNode->reg.registerNumber, exprNode->parentLabelNo);
-    else
-      fprintf(outputFile, "bnez x%d, _BOOL_SHORT_%d\n",
-          exprNode->reg.registerNumber, exprNode->parentLabelNo);
+    if (exprNode->shortOnFalse) {
+      CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+    } else {
+      CodegenBranchZero(BNEZ, exprNode->reg.registerNumber,
+                        "_BOOL_SHORT_", exprNode->parentLabelNo);
+    }
   }
 }
 
@@ -1793,8 +1682,6 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
           memSize = 1;
           switch (singleVariableTD->properties.dataType) {
             case INT_TYPE:
-              // DEBUG
-              //fprintf(outputFile, "_GLOBAL_%s: .dword 0\n", singleVariableName);
               fprintf(outputFile, "_GLOBAL_%s: .word 0\n", singleVariableName);
               break;
             case FLOAT_TYPE:
@@ -1839,8 +1726,6 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       SymbolTableEntry *singleVariableEntry = singleVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
       // modify new arSize
       TypeDescriptor *singleVariableTD = singleVariableEntry->attribute->attr.typeDescriptor;
-      // DEBUG
-      //int intSize = 8, floatSize = 4;
       int intSize = 4, floatSize = 4;
       int memSize = 0;
       bool isIntType = false;
@@ -1905,10 +1790,10 @@ void CodegenFunctionDeclaration(AST_NODE *functionNode) {
     assert(param->nodeType == FUNCTION_PARAMETER_DECL);
     CodegenDeclarationNode(param);  // FUNCTION_PARAMETER_DECL
   }
-  
+
   AST_NODE *blockNode = paramListNode->rightSibling;
   CodegenBlockNode(blockNode);
-  
+
   CodegenFunctionEpilogue(functionNode);
 }
 
@@ -1945,10 +1830,10 @@ void CodegenBlockNode(AST_NODE *blockNode) {
 void CodegenStmtNode(AST_NODE *stmtNode) {
   assert(   stmtNode->nodeType == STMT_NODE
          || stmtNode->nodeType == BLOCK_NODE
-         || stmtNode->nodeType == NUL_NODE  ); 
+         || stmtNode->nodeType == NUL_NODE  );
   switch (stmtNode->nodeType) {
     case STMT_NODE: {
-      STMT_KIND stmtKind = stmtNode->semantic_value.stmtSemanticValue.kind; 
+      STMT_KIND stmtKind = stmtNode->semantic_value.stmtSemanticValue.kind;
       switch (stmtKind) {
         case WHILE_STMT:
           CodegenWhileStmt(stmtNode);
@@ -1993,7 +1878,7 @@ void CodegenWhileStmt(AST_NODE *whileStmt) {
   AST_NODE *testNode = whileStmt->child;
   CodegenExprRelated(testNode); // TODO: what if testNode is assign_expr ? what if FLOAY_TYPE ?
   if (!testNode->reg.isFloat) { // INT_TYPE
-    fprintf(outputFile, "beqz x%d, _WHILE_EXIT_%d\n", testNode->reg.registerNumber, labelNo);
+    CodegenBranchZero(BEQZ, testNode->reg.registerNumber, "_WHILE_EXIT_", labelNo);
   }
   else {                        // FLOAT_TYPE
     int offset = TmpOffsetGet(false);
@@ -2004,7 +1889,7 @@ void CodegenWhileStmt(AST_NODE *whileStmt) {
     // we use a bit mask 24 (11000 in binary) to check if either bit is set
     fprintf(outputFile, "andi x%d, x%d, 24\n",
         tmpReg.registerNumber, tmpReg.registerNumber);
-    fprintf(outputFile, "beqz x%d, _WHILE_EXIT_%d\n", tmpReg.registerNumber, labelNo);
+    CodegenBranchZero(BNEZ, tmpReg.registerNumber, "_WHILE_EXIT_", labelNo);
     RegFree(tmpReg);
     TmpOffsetFree(false, offset);
   }
@@ -2014,7 +1899,7 @@ void CodegenWhileStmt(AST_NODE *whileStmt) {
   }
   AST_NODE *stmtNode = testNode->rightSibling;
   CodegenStmtNode(stmtNode);
-  fprintf(outputFile, "j _WHILE_LABEL_%d\n", labelNo);
+  CodegenJumpLabelNo("_WHILE_LABEL_", labelNo);
   fprintf(outputFile, "_WHILE_EXIT_%d:\n", labelNo);
 }
 
@@ -2038,14 +1923,15 @@ void CodegenForStmt(AST_NODE *forStmt) {
   fprintf(outputFile, "_FOR_BODY_%d:\n", labelNo);
   AST_NODE *forCondNode = forInitNode->rightSibling;
   if (forCondNode->nodeType != NUL_NODE) {
-    // TODO: what if multiple condition statement ? 
+    // TODO: what if multiple condition statement ?
     for (AST_NODE *exprNode = forCondNode->child;
          exprNode;
          exprNode = exprNode->rightSibling) {
       CodegenExprRelated(exprNode);
       if (!exprNode->rightSibling) {  // real condition statement
         if (!exprNode->reg.isFloat) { // INT_TYPE
-          fprintf(outputFile, "beqz x%d, _FOR_EXIT_%d\n", exprNode->reg.registerNumber, labelNo);
+          CodegenBranchZero(BEQZ, exprNode->reg.registerNumber,
+                            "_FOR_EXIT_", labelNo);
         }
         else {                        // FLOAT_TYPE
           int offset = TmpOffsetGet(false);
@@ -2056,7 +1942,7 @@ void CodegenForStmt(AST_NODE *forStmt) {
           // we use a bit mask 24 (11000 in binary) to check if either bit is set
           fprintf(outputFile, "andi x%d, x%d, 24\n",
               tmpReg.registerNumber, tmpReg.registerNumber);
-          fprintf(outputFile, "beqz x%d, _FOR_EXIT_%d\n", tmpReg.registerNumber, labelNo);
+          CodegenBranchZero(BNEZ, tmpReg.registerNumber, "_FOR_EXIT_", labelNo);
           RegFree(tmpReg);
           TmpOffsetFree(false, offset);
         }
@@ -2081,7 +1967,7 @@ void CodegenForStmt(AST_NODE *forStmt) {
   }
   AST_NODE *stmtNode = forIncNode->rightSibling;
   CodegenStmtNode(stmtNode);
-  fprintf(outputFile, "j _FOR_BODY_%d\n", labelNo);
+  CodegenJumpLabelNo("_FOR_BODY_", labelNo);
   fprintf(outputFile, "_FOR_EXIT_%d:\n", labelNo);
 }
 
@@ -2110,7 +1996,7 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
           assert(0);
       }
       break;
-    }  
+    }
     case ARRAY_TYPE_DESCRIPTOR: {
       // TODO: what if first element is NUL?
       ArrayProperties arrayProp = entryTD->properties.arrayProperties;
@@ -2142,11 +2028,6 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
   }
   if (variableNode->reg.isCallerSaved) {
     if (!isFloatType) {
-      // DEBUG
-      /*
-      fprintf(outputFile, "sd x%d, 0(x%d)\n", exprNode->reg.registerNumber,
-                                              variableNode->reg.registerNumber);
-      */
       fprintf(outputFile, "sw x%d, 0(x%d)\n", exprReg.registerNumber,
                                               variableNode->reg.registerNumber);
     }
@@ -2201,10 +2082,13 @@ void CodegenIfStmt(AST_NODE *ifStmt) {
   AST_NODE *ifStmtNode = testNode->rightSibling;
   AST_NODE *elseStmtNode = ifStmtNode->rightSibling;
   if (!testNode->reg.isFloat) { // INT_TYPE
-    if (elseStmtNode->nodeType != NUL_NODE)
-      fprintf(outputFile, "beqz x%d, _ELSE_LABEL_%d\n", testNode->reg.registerNumber, labelNo);
-    else
-      fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", testNode->reg.registerNumber, labelNo);
+    if (elseStmtNode->nodeType != NUL_NODE) {
+      CodegenBranchZero(BEQZ, testNode->reg.registerNumber,
+                        "_ELSE_LABEL_", labelNo);
+    } else {
+      CodegenBranchZero(BEQZ, testNode->reg.registerNumber,
+                        "_IF_EXIT_", labelNo);
+    }
   }
   else {                        // FLOAT_TYPE
     int offset = TmpOffsetGet(false);
@@ -2215,10 +2099,13 @@ void CodegenIfStmt(AST_NODE *ifStmt) {
     // we use a bit mask 24 (11000 in binary) to check if either bit is set
     fprintf(outputFile, "andi x%d, x%d, 24\n",
         tmpReg.registerNumber, tmpReg.registerNumber);
-    if (elseStmtNode->nodeType != NUL_NODE)
-      fprintf(outputFile, "beqz x%d, _ELSE_LABEL_%d\n", testNode->reg.registerNumber, labelNo);
-    else
-      fprintf(outputFile, "beqz x%d, _IF_EXIT_%d\n", testNode->reg.registerNumber, labelNo);
+    if (elseStmtNode->nodeType != NUL_NODE) {
+      CodegenBranchZero(BNEZ, testNode->reg.registerNumber,
+                        "_ELSE_LABEL_", labelNo);
+    } else {
+      CodegenBranchZero(BNEZ, testNode->reg.registerNumber,
+                        "_IF_EXIT_", labelNo);
+    }
     RegFree(tmpReg);
     TmpOffsetFree(false, offset);
   }
@@ -2228,7 +2115,7 @@ void CodegenIfStmt(AST_NODE *ifStmt) {
   }
   CodegenStmtNode(ifStmtNode);
   if (elseStmtNode->nodeType != NUL_NODE) {
-    fprintf(outputFile, "j _IF_EXIT_%d\n", labelNo);
+    CodegenJumpLabelNo("_IF_EXIT_", labelNo);
     fprintf(outputFile, "_ELSE_LABEL_%d:\n", labelNo);
     CodegenStmtNode(elseStmtNode);
   }
@@ -2257,26 +2144,12 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   if (returnType != VOID_TYPE) {
     switch (returnType) {
       case INT_TYPE:
-        // EDIT
-        /*
-        isFloatType = false;
-        functionCallStmt->reg.isFloat = false;
-        functionCallStmt->reg.isCallerSaved = false;
-        functionCallStmt->reg.registerNumber = 10;
-        */
         functionCallStmt->offset = TmpOffsetGet(false);
         functionCallStmt->reg = RegGet(false, true, functionCallStmt->offset);
         fprintf(outputFile, "mv x%d, a0\n",
                 functionCallStmt->reg.registerNumber);
         break;
       case FLOAT_TYPE:
-        // EDIT
-        /*
-        isFloatType = true;
-        functionCallStmt->reg.isFloat = true;
-        functionCallStmt->reg.isCallerSaved = false;
-        functionCallStmt->reg.registerNumber = 10;
-        */
         functionCallStmt->offset = TmpOffsetGet(false);
         functionCallStmt->reg = RegGet(true, true, functionCallStmt->offset);
         fprintf(outputFile, "fmv.s f%d, fa0\n",
@@ -2296,12 +2169,6 @@ void CodegenReadFunction(AST_NODE *readFunctionCall) {
   char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
   if (!strcmp("read", functionName)) {        // return int
     fprintf(outputFile, "call _read_int\n");
-    // EDIT
-    /*
-    readFunctionCall->reg.isCallerSaved = false;
-    readFunctionCall->reg.isFloat = false;
-    readFunctionCall->reg.registerNumber = 10;
-    */
     readFunctionCall->offset = TmpOffsetGet(false);
     readFunctionCall->reg = RegGet(false, true, readFunctionCall->offset);
     fprintf(outputFile, "mv x%d, a0\n",
@@ -2309,12 +2176,6 @@ void CodegenReadFunction(AST_NODE *readFunctionCall) {
   }
   else if (!strcmp("fread", functionName)) {  // return float
     fprintf(outputFile, "call _read_float\n");
-    // EDIT
-    /*
-    readFunctionCall->reg.isCallerSaved = false;
-    readFunctionCall->reg.isFloat = true;
-    readFunctionCall->reg.registerNumber = 10;
-    */
     readFunctionCall->offset = TmpOffsetGet(false);
     readFunctionCall->reg = RegGet(true, true, readFunctionCall->offset);
     fprintf(outputFile, "fmv.s f%d, fa0\n",
@@ -2468,5 +2329,77 @@ void CodegenReturnStmt(AST_NODE *returnStmt) {
        currentNode = currentNode->parent);
   functionId = currentNode->child->rightSibling;
   char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
-  fprintf(outputFile, "j _FUNCTION_END_%s\n", functionName);
+  CodegenJumpLabelStr("_FUNCTION_END_", functionName);
+}
+
+void CodegenJumpLabel(const char *label) {
+  // ra register is used because it is the only register that can be used
+  // at any time
+  fprintf(outputFile, "la ra, %s\n", label);
+  fprintf(outputFile, "jr ra\n");
+}
+
+void CodegenJumpLabelNo(const char *label, int labelNo) {
+  // ra register is used because it is the only register that can be used
+  // at any time
+  fprintf(outputFile, "la ra, %s%d\n", label, labelNo);
+  fprintf(outputFile, "jr ra\n");
+}
+
+void CodegenJumpLabelStr(const char *label, const char *str) {
+  // ra register is used because it is the only register that can be used
+  // at any time
+  fprintf(outputFile, "la ra, %s%s\n", label, str);
+  fprintf(outputFile, "jr ra\n");
+}
+
+void CodegenBranchZero(BranchInst inst, int reg,
+                       const char *label, int labelNo) {
+  const char *branch;
+  switch (inst) {
+    case BEQZ:
+      branch = "bnez";
+      break;
+    case BNEZ:
+      branch = "beqz";
+      break;
+    default:
+      // this should not happen
+      assert(0);
+  }
+  fprintf(outputFile, "%s x%d, _SKIP_%d\n", branch, reg, skipCounter);
+  CodegenJumpLabelNo(label, labelNo);
+  fprintf(outputFile, "_SKIP_%d:\n", skipCounter++);
+}
+
+void CodegenBranch(BranchInst inst, int reg1, int reg2,
+                   const char *label, int labelNo) {
+  const char *branch;
+  switch (inst) {
+    case BEQ:
+      branch = "bne";
+      break;
+    case BNE:
+      branch = "beq";
+      break;
+    case BLT:
+      branch = "bge";
+      break;
+    case BLE:
+      branch = "bgt";
+      break;
+    case BGT:
+      branch = "ble";
+      break;
+    case BGE:
+      branch = "blt";
+      break;
+    default:
+      // this should not happen
+      assert(0);
+  }
+  fprintf(outputFile, "%s x%d, x%d, _SKIP_%d\n", branch, reg1, reg2,
+          skipCounter);
+  CodegenJumpLabelNo(label, labelNo);
+  fprintf(outputFile, "_SKIP_%d:\n", skipCounter++);
 }

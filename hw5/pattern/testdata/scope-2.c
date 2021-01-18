@@ -1,6 +1,7 @@
 int MAIN() {
   int a[100];
   int b[100];
+  a[0] = 777;
   b[99] = 456;
   {
     int a[100];
@@ -20,7 +21,6 @@ int MAIN() {
       write(b[99]);
     }
   }
-  /* this seems incorrect... */
   write(a[0]);
   write(b[99]);
 }
