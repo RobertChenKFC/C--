@@ -241,12 +241,6 @@ void TmpOffsetFree(bool isFloat, int tmpOffset) {
 #define RISCV_MAX_REG_NUM  32
 #define NUL_OFFSET         8  // fp+8 is used to store return address, thus
                               // should not be a valid register spilling address
-/*
- * TODO:
- * How do we manage registers for function arguments? The current implementation
- * doesn't allow them to be used as either caller saved or callee saved
- * registers.
- */
 // integer caller saved registers
 int intCallerSavedRegisters[] =
   { 5, 6, 7, 28, 29, 30, 31, NUL_REG };
@@ -267,6 +261,14 @@ int floatCalleeSavedRegisters[] =
   { 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, NUL_REG };
 List *freeFloatCalleeSavedRegisters, *usedFloatCalleeSavedRegisters;
 int floatCalleeSavedRegisterOffsets[RISCV_MAX_REG_NUM];
+// integer function argument registers
+int intFunctionArgumentRegisters[] =
+  { 10, 11, 12, 13, 14, 15, 16, 17, NUL_REG };
+int currentIntFunctionArgumentRegister;
+// float function argument registers
+int floatFunctionArgumentRegisters[] =
+  { 10, 11, 12, 13, 14, 15, 16, 17, NUL_REG };
+int currentFloatFunctionArgumentRegister;
 
 void RegInit() {
   // int caller saved registers
@@ -325,6 +327,16 @@ void RegReset() {
   ListClear(usedFloatCalleeSavedRegisters);
   for (int i = 0; floatCalleeSavedRegisters[i] != NUL_REG; ++i)
     ListPush(freeFloatCalleeSavedRegisters, floatCalleeSavedRegisters[i]);
+
+  // integer function argument registers
+  currentIntFunctionArgumentRegister = 0;
+  for (int i = 0; intFunctionArgumentRegisters[i] != NUL_REG; ++i)
+    ListPush(freeIntCallerSavedRegisters, intFunctionArgumentRegisters[i]);
+
+  // float function argument registers
+  currentFloatFunctionArgumentRegister = 0;
+  for (int i = 0; floatFunctionArgumentRegisters[i] != NUL_REG; ++i)
+    ListPush(freeFloatCallerSavedRegisters, floatFunctionArgumentRegisters[i]);
 }
 
 /* TODO: remember to call this function every time a function call is
@@ -416,10 +428,6 @@ Reg RegGet(bool isFloat, bool isCallerSaved, int offset) {
   return newRegister;
 }
 
-Reg RegGetParam(bool isFloat, int offset) {
-  // TODO: finish implementation
-}
-
 void RegFreeImpl(int registerNumber,
                  List *freeRegisters, List *usedRegisters) {
   ListDelete(usedRegisters, registerNumber);
@@ -507,6 +515,44 @@ Reg RegRestore(Reg oldReg, int offset) {
     }
   }
   return newReg;
+}
+
+Reg RegGetParamImpl(bool isFloat, int *functionArgumentRegisters,
+                    int *currentFunctionArgumentRegister,
+                    int *registerOffsets, int offset,
+                    List *freeCallerSavedRegisters,
+                    List *usedCallerSavedRegisters) {
+  if (functionArgumentRegisters[*currentFunctionArgumentRegister] == NUL_REG) {
+    Reg reg = {
+      .registerNumber = NUL_REG
+    };
+    return reg;
+  }
+  Reg reg = {
+    .isFloat = isFloat,
+    .isCallerSaved = true,
+    .registerNumber =
+      functionArgumentRegisters[(*currentFunctionArgumentRegister)++]
+  };
+  registerOffsets[reg.registerNumber] = offset;
+  ListDelete(freeCallerSavedRegisters, reg.registerNumber);
+  ListPush(usedCallerSavedRegisters, reg.registerNumber);
+  return reg;
+}
+
+Reg RegGetParam(bool isFloat, int offset) {
+  if (isFloat)
+    return RegGetParamImpl(true, floatFunctionArgumentRegisters,
+                           &currentFloatFunctionArgumentRegister,
+                           floatCallerSavedRegisterOffsets, offset,
+                           freeFloatCallerSavedRegisters,
+                           usedFloatCallerSavedRegisters);
+  else
+    return RegGetParamImpl(false, intFunctionArgumentRegisters,
+                           &currentIntFunctionArgumentRegister,
+                           intCallerSavedRegisterOffsets, offset,
+                           freeIntCallerSavedRegisters,
+                           usedIntCallerSavedRegisters);
 }
 
 /* ========== register manager ========== */
