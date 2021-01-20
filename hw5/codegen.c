@@ -741,6 +741,29 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
           // variable is a local variable or parameter, and has not been
           // assigned to a register yet, should be assigned to a callee saved
           // register
+          if (varRef->dataType == NONE_TYPE) {
+            TypeDescriptor *typeDescriptor =
+              entry->attribute->attr.typeDescriptor;
+            switch (typeDescriptor->kind) {
+              case SCALAR_TYPE_DESCRIPTOR:
+                varRef->dataType = typeDescriptor->properties.dataType;
+                break;
+              case ARRAY_TYPE_DESCRIPTOR:
+                switch (typeDescriptor->properties.arrayProperties.
+                        elementType) {
+                  case INT_TYPE:
+                    varRef->dataType = INT_PTR_TYPE;
+                    break;
+                  case FLOAT_TYPE:
+                    varRef->dataType = FLOAT_PTR_TYPE;
+                    break;
+                  default:
+                    // this should not happen
+                    assert(0);
+                }
+                break;
+            }
+          }
           switch (varRef->dataType) {
             case INT_TYPE:
             case INT_PTR_TYPE:
