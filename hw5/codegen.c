@@ -697,7 +697,8 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
   assert(entry->attribute->attributeKind == VARIABLE_ATTRIBUTE);
 
   switch (id->kind) {
-    case NORMAL_ID: {
+    case NORMAL_ID:
+    case WITH_INIT_ID: {
       if (entry->nestingLevel == 0) {
         // variable is a global variable, should be temporarily assigned to
         // a caller saved register
@@ -757,6 +758,7 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
               break;
             default:
               // this should not happen
+              fprintf(stderr, "dataType: %d\n", varRef->dataType);
               assert(0);
           }
         } else {
@@ -909,10 +911,10 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
       RegFree(vpReg);
       TmpOffsetFree(false, vpOffset);
       break;
-    } case WITH_INIT_ID: {
+    }
+    default:
       // this should not happen
       assert(0);
-    }
   }
 }
 
@@ -1721,23 +1723,103 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       SymbolTableEntry *singleVariableEntry = singleVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
       TypeDescriptor *singleVariableTD = singleVariableEntry->attribute->attr.typeDescriptor;
       char *singleVariableName = singleVariable->semantic_value.identifierSemanticValue.identifierName;
-      int intSize = 8, floatSize = 4;
+      const int intSize = 8, floatSize = 4;
+      int intValue = 0;
+      float floatValue = 0;
+      bool initValueIsIntType = true;
       int memSize = 0;
       switch (singleVariableTD->kind) {
-        case SCALAR_TYPE_DESCRIPTOR:
+        case SCALAR_TYPE_DESCRIPTOR: {
           memSize = 1;
+          switch (idKind) {
+            case NORMAL_ID: // no init value
+              initValueIsIntType = true;  // by default
+              intValue = 0;
+              break;
+            case WITH_INIT_ID: { // TODO: whether const init value?
+              AST_NODE *initValueNode = singleVariable->child;
+              switch (initValueNode->nodeType) {
+                case EXPR_NODE: {
+                  EXPRSemanticValue initExprSemanticValue = initValueNode->semantic_value.exprSemanticValue;
+                  if (!initExprSemanticValue.isConstEval) {
+                    fprintf(stderr, "codegen error: initializer element is a non-constant expression during Global Variable Declaration\n");
+                    assert(0);
+                  }
+                  switch (initValueNode->dataType) {
+                    case INT_TYPE:
+                      initValueIsIntType = true;
+                      intValue = initExprSemanticValue.constEvalValue.iValue;
+                      break;
+                    case FLOAT_TYPE:
+                      initValueIsIntType = false;
+                      floatValue = initExprSemanticValue.constEvalValue.fValue;
+                      break;
+                    default:
+                      // this should not happen
+                      fprintf(stderr, "codegen error: initializier element has invalid dataType during Global Variable Declaration\n");
+                      assert(0);
+                  }
+                  break;
+                }
+                case CONST_VALUE_NODE: {
+                  CON_Type *initValueConType = initValueNode->semantic_value.const1;
+                  switch (initValueConType->const_type) {
+                    case INTEGERC:
+                      initValueIsIntType = true;
+                      intValue = initValueConType->const_u.intval;
+                      break;
+                    case FLOATC:
+                      initValueIsIntType = false;
+                      floatValue = initValueConType->const_u.fval;
+                      break;
+                    case STRINGC:
+                      fprintf(stderr, "codegen error: initializier element has invalid dataType during Global Variable Declaration\n");
+                    default:
+                      // this should not happen
+                      fprintf(stderr, "codegen error initializier element has invalid dataType during Global Variable Declaration\n");
+                      assert(0);
+                  }
+                  break;
+                }
+                case STMT_NODE:       // function call is not permitted here
+                  fprintf(stderr, "codegen error: initializer element is a function call during Global Variable Declaration\n");
+                case IDENTIFIER_NODE: // var_ref initialization is not permitted here
+                  fprintf(stderr, "codegen error: initializer element is a variable reference during Global Variable Declaration\n");
+                default:
+                  // this should not happen
+                  assert(0);
+              }
+
+              break;
+            }
+            case ARRAY_ID:
+              fprintf(stderr, "codegen error: unexpected ARRAY_ID during Global Variable Declaration\n");
+            default:
+              // this should not happen
+              assert(0);
+          }
           switch (singleVariableTD->properties.dataType) {
-            case INT_TYPE:
-              fprintf(outputFile, "_GLOBAL_%s: .word 0\n", singleVariableName);
+            // TODO: implicit type conversion
+            case INT_TYPE: {
+              if (!initValueIsIntType) {
+                intValue = (int)floatValue;
+              }
+              fprintf(outputFile, "_GLOBAL_%s: .word %d\n", singleVariableName, intValue);
               break;
-            case FLOAT_TYPE:
-              fprintf(outputFile, "_GLOBAL_%s: .float 0\n", singleVariableName);
+            }
+            case FLOAT_TYPE: {
+              if (initValueIsIntType) {
+                floatValue = (float)intValue;
+              }
+              fprintf(outputFile, "_GLOBAL_%s: .float %f\n", singleVariableName, floatValue);
               break;
+            }
             default:
               // this should not happen
               assert(0);
           }
           break;
+        }
         case ARRAY_TYPE_DESCRIPTOR: {
           memSize = 1;
           ArrayProperties singleVariableAP = singleVariableTD->properties.arrayProperties;
@@ -1817,7 +1899,118 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       arSize += memSize * (isIntType ? intSize : floatSize);
       singleVariableEntry->offset = -arSize;
       //fprintf(outputFile, "### allocate %d bytes, arSize: %d ###\n", memSize * intSize, arSize);
+      
+      // TODO: Variable Initialization
+      if (idKind == WITH_INIT_ID) {
+        CodegenLocalVariableInitAssignStmt(singleVariable);
+      }
     }
+  }
+}
+
+void CodegenLocalVariableInitAssignStmt(AST_NODE *variableNode) {
+  // very similar to CodegenAssignStmt()
+  fprintf(outputFile, "## Codegen: Variable Declaration - Local Variable Initialization ##\n");
+  assert(variableNode->nodeType == IDENTIFIER_NODE);
+
+  AST_NODE *exprNode = variableNode->child;
+  CodegenExprRelated(exprNode);           // should be relop_expr
+  CodegenVariableRef(variableNode, true); // should be var_ref (or simply ID, TODO: why?)
+  exprNode->reg = RegRestore(exprNode->reg, exprNode->offset);
+  SymbolTableEntry *entry = variableNode->semantic_value.identifierSemanticValue.symbolTableEntry;
+  TypeDescriptor *entryTD = entry->attribute->attr.typeDescriptor;
+  bool isFloatType = false;
+  switch (entryTD->kind) {
+    case SCALAR_TYPE_DESCRIPTOR: {
+      switch (entryTD->properties.dataType) {
+        case INT_TYPE:
+          isFloatType = false;
+          break;
+        case FLOAT_TYPE:
+          isFloatType = true;
+          break;
+        default:
+          // this should not happen
+          assert(0);
+      }
+      break;
+    }
+    case ARRAY_TYPE_DESCRIPTOR: {
+      // TODO: what if first element is NUL?
+      ArrayProperties arrayProp = entryTD->properties.arrayProperties;
+      switch (arrayProp.elementType) {
+        case INT_TYPE:
+          isFloatType = false;
+          break;
+        case FLOAT_TYPE:
+          isFloatType = true;
+          break;
+        default:
+          // this should not happen
+          assert(0);
+      }
+      break;
+    }
+    default:
+      // this should not happen
+      assert(0);
+  }
+  Reg exprReg;
+  if (isFloatType && !exprNode->reg.isFloat) {
+    exprReg = RegGet(true, true, NUL_OFFSET);
+    RegFree(exprReg);
+    fprintf(outputFile, "fcvt.s.w f%d, x%d\n",
+            exprReg.registerNumber, exprNode->reg.registerNumber);
+  } else {
+    exprReg = exprNode->reg;
+  }
+  if (variableNode->reg.isCallerSaved) {
+    if (!isFloatType) {
+      fprintf(outputFile, "sw x%d, 0(x%d)\n", exprReg.registerNumber,
+                                              variableNode->reg.registerNumber);
+    }
+    else {
+      fprintf(outputFile, "fsw f%d, 0(x%d)\n", exprReg.registerNumber,
+                                               variableNode->reg.registerNumber);
+    }
+  } else {
+    if (!isFloatType) {
+      fprintf(outputFile, "mv x%d, x%d\n", variableNode->reg.registerNumber,
+                                           exprReg.registerNumber);
+    }
+    else {
+      fprintf(outputFile, "fmv.s f%d, f%d\n", variableNode->reg.registerNumber,
+                                              exprReg.registerNumber);
+    }
+  }
+  // allocate a temporary (caller saved) register to assignStmt->reg
+  // TODO: We don't need it here, right?
+  /*
+  if (assignStmt->parent->nodeType == STMT_NODE &&
+      (assignStmt->parent->semantic_value.stmtSemanticValue.kind == IF_STMT ||
+       assignStmt->parent->semantic_value.stmtSemanticValue.kind == WHILE_STMT ||
+       assignStmt->parent->semantic_value.stmtSemanticValue.kind == FOR_STMT)) {
+    assignStmt->offset = TmpOffsetGet(isFloatType);
+    assignStmt->reg = RegGet(isFloatType, true, assignStmt->offset);
+    if (!isFloatType) {
+      fprintf(outputFile, "mv x%d, x%d\n", assignStmt->reg.registerNumber,
+                                           variableNode->reg.registerNumber);
+    }
+    else {
+      fprintf(outputFile, "fmv.s f%d, f%d\n", assignStmt->reg.registerNumber,
+                                              variableNode->reg.registerNumber);
+    }
+  }
+  */
+  if (exprNode->reg.isCallerSaved) {
+    TmpOffsetFree(exprNode->reg.isFloat,
+                  exprNode->offset);
+    RegFree(exprNode->reg);
+  }
+  if (variableNode->reg.isCallerSaved) {
+    TmpOffsetFree(variableNode->reg.isFloat,
+                  variableNode->offset);
+    RegFree(variableNode->reg);
   }
 }
 
@@ -2353,6 +2546,7 @@ void CodegenReturnStmt(AST_NODE *returnStmt) {
   assert(returnStmt->semantic_value.stmtSemanticValue.kind == RETURN_STMT);
   fprintf(outputFile, "## Codegen: Return Stmt ##\n");
   // TODO: implicit type conversion ?
+  // TODO: do implicit type conversion (climbing!!)
   AST_NODE *returnValueNode = returnStmt->child;
   if (returnValueNode->nodeType != NUL_NODE) {
     CodegenExprRelated(returnValueNode);

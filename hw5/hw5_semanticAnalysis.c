@@ -32,9 +32,6 @@ void processConstValueNode(AST_NODE* constValueNode);
 void getExprOrConstValue(AST_NODE* exprOrConstNode, int* iValue, float* fValue);
 void evaluateExprValue(AST_NODE* exprNode);
 
-// HW6
-void checkInit(AST_NODE *initNode, AST_NODE *declNode);
-
 
 typedef enum ErrorMsgKind
 {
@@ -392,8 +389,6 @@ void declareIdList(AST_NODE* declarationNode, SymbolAttributeKind isVariableOrTy
             else
             {
                 attribute->attr.typeDescriptor = typeNode->semantic_value.identifierSemanticValue.symbolTableEntry->attribute->attr.typeDescriptor;
-                // TODO: Variable Initialization from hw6_semanticAnalysis.c
-                checkInit(traverseIDList, declarationNode);
             }
             break;
         default:
@@ -1481,22 +1476,4 @@ void declareFunction(AST_NODE* declarationNode)
             removeSymbol(functionNameID->semantic_value.identifierSemanticValue.identifierName);
         }
     }
-}
-
-void checkInit(AST_NODE *initNode, AST_NODE *declNode) {
-  AST_NODE *rightOp = initNode->child;
-  processExprRelatedNode(rightOp);
-  int isError = 0;
-  if (rightOp->dataType == INT_PTR_TYPE ||
-      rightOp->dataType == FLOAT_PTR_TYPE) {
-    isError = 1;
-    printErrorMsg(rightOp, INCOMPATIBLE_ARRAY_DIMENSION);
-  } else if (rightOp->dataType == CONST_STRING_TYPE) {
-    isError = 1;
-    printErrorMsg(rightOp, STRING_OPERATION);
-  }
-  if (isError || rightOp->dataType == ERROR_TYPE) {
-    initNode->dataType = ERROR_TYPE;
-    declNode->dataType = ERROR_TYPE;
-  }
 }

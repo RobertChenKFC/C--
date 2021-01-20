@@ -74,6 +74,7 @@ void CodegenProgramNode(AST_NODE *programNode);
 void CodegenDeclarationNode(AST_NODE *declarationNode);
 void CodegenParameterDeclaration(AST_NODE *paramNode);
 void CodegenVariableDeclaration(AST_NODE *variableNode);
+void CodegenLocalVariableInitAssignStmt(AST_NODE *variableNode);
 void CodegenFunctionDeclaration(AST_NODE *functionNode);
 void CodegenFunctionPrologue(AST_NODE *functionNode);
 void CodegenFunctionEpilogue(AST_NODE *functionNode);
