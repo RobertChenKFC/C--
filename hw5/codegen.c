@@ -1722,9 +1722,8 @@ void CodegenDeclarationNode(AST_NODE *declarationNode) {
     case FUNCTION_DECL:
       CodegenFunctionDeclaration(declarationNode);
       break;
-    case FUNCTION_PARAMETER_DECL:
-      CodegenParameterDeclaration(declarationNode);
-      break;
+    case FUNCTION_PARAMETER_DECL: // should not appear here, codegen will generate full parameter list once
+      assert(0);
     case TYPE_DECL: // have been handled in semantic check stage
       break;
     case VARIABLE_DECL:
@@ -1735,10 +1734,64 @@ void CodegenDeclarationNode(AST_NODE *declarationNode) {
   }
 }
 
-void CodegenParameterDeclaration(AST_NODE *paramNode) {
-  assert(paramNode->semantic_value.declSemanticValue.kind == FUNCTION_PARAMETER_DECL);
-  fprintf(outputFile, "## Codegen: Parameter Declaration ##\n");
-  // would be covered in HW6
+#define FP_DEFAULT_PARAM_OFFSET 16
+
+void CodegenFunctionParameterList(AST_NODE *paramListNode) {
+  assert(paramListNode->nodeType == PARAM_LIST_NODE);
+  fprintf(outputFile, "## Codegen: Parameter List Declaration ##\n");
+  int fp_offset = FP_DEFAULT_PARAM_OFFSET;
+  for (AST_NODE *paramNode = paramListNode->child;
+       paramNode;
+       paramNode = paramNode->rightSibling) {
+    AST_NODE *variableNode = paramNode->child->rightSibling;
+    // TODO: need a lot modification
+    // TODO: a[][2][3], first []
+    SymbolTableEntry *variableEntry = variableNode->semantic_value.identifierSemanticValue.symbolTableEntry;
+    TypeDescriptor *variableTD = variableEntry->attribute->attr.typeDescriptor;
+    const int ptrSize = 8, intSize = 8, floatSize = 4;
+    bool isIntType = false;
+    int memSize = 0;
+    switch (variableTD->kind) {
+      case SCALAR_TYPE_DESCRIPTOR:
+        switch (variableTD->properties.dataType) {
+          case INT_TYPE:
+            isIntType = true;
+            memSize = intSize;
+            break;
+          case FLOAT_TYPE:
+            isIntType = false;
+            memSize = floatSize;
+            break;
+          default:
+            // this should not happen
+            assert(0);
+        }
+        break;
+      case ARRAY_TYPE_DESCRIPTOR: {
+        memSize = ptrSize;
+        ArrayProperties variableAP = variableTD->properties.arrayProperties;
+        switch (variableAP.elementType) {
+          case INT_TYPE:
+            isIntType = true;
+            break;
+          case FLOAT_TYPE:
+            isIntType = false;
+            break;
+          default:
+            // this should not happen
+            assert(0);
+        }
+        break;
+      }
+      default:
+        // this should not happen
+        assert(0);
+    }
+    // TODO: should i set both offset and param register ?
+    variableEntry->reg = RegGetParam(!isIntType, fp_offset);
+    variableEntry->offset = fp_offset;
+    fp_offset += memSize;
+  }
 }
 
 void CodegenVariableDeclaration(AST_NODE *variableNode) {
@@ -1895,7 +1948,7 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       SymbolTableEntry *singleVariableEntry = singleVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
       // modify new arSize
       TypeDescriptor *singleVariableTD = singleVariableEntry->attribute->attr.typeDescriptor;
-      int intSize = 4, floatSize = 4;
+      int intSize = 8, floatSize = 4;
       int memSize = 0;
       bool isIntType = false;
       switch (singleVariableTD->kind) {
@@ -1997,12 +2050,20 @@ void CodegenLocalVariableInitAssignStmt(AST_NODE *variableNode) {
       assert(0);
   }
   Reg exprReg;
-  if (isFloatType && !exprNode->reg.isFloat) {
+  // TODO: implicit type conversion: float -> int ? check another mirror function also
+  if (isFloatType && !exprNode->reg.isFloat) {      // int expr -> float var
     exprReg = RegGet(true, true, NUL_OFFSET);
     RegFree(exprReg);
     fprintf(outputFile, "fcvt.s.w f%d, x%d\n",
             exprReg.registerNumber, exprNode->reg.registerNumber);
-  } else {
+  } 
+  else if (!isFloatType && exprNode->reg.isFloat) { // float expr -> int var
+    exprReg = RegGet(false, true, NUL_OFFSET);
+    RegFree(exprReg);
+    fprintf(outputFile, "fcvt.w.s x%d, f%d\n",
+            exprReg.registerNumber, exprNode->reg.registerNumber);
+  }
+  else {
     exprReg = exprNode->reg;
   }
   if (variableNode->reg.isCallerSaved) {
@@ -2057,19 +2118,17 @@ void CodegenLocalVariableInitAssignStmt(AST_NODE *variableNode) {
 
 void CodegenFunctionDeclaration(AST_NODE *functionNode) {
   assert(functionNode->semantic_value.declSemanticValue.kind == FUNCTION_DECL);
+  fprintf(outputFile, "## Codegen: Function Declaration ##\n");
   TmpOffsetReset();
-  RegReset();
+  RegReset(); // arSize = 0
 
-  arSize = 0;
+  // TODO: only need to set argument offset with respect to fp
+  AST_NODE *paramListNode = functionNode->child->rightSibling->rightSibling;
+  CodegenFunctionParameterList(paramListNode);
+
   CodegenFunctionPrologue(functionNode);
 
-  fprintf(outputFile, "## Codegen: Function Declaration ##\n");
-  AST_NODE *paramListNode = functionNode->child->rightSibling->rightSibling;
-  assert(paramListNode->nodeType == PARAM_LIST_NODE);
-  for (AST_NODE *param = paramListNode->child; param; param = param->rightSibling) {
-    assert(param->nodeType == FUNCTION_PARAMETER_DECL);
-    CodegenDeclarationNode(param);  // FUNCTION_PARAMETER_DECL
-  }
+  fprintf(outputFile, "## Codegen: Function Body Declaration ##\n");
 
   AST_NODE *blockNode = paramListNode->rightSibling;
   CodegenBlockNode(blockNode);
@@ -2298,12 +2357,20 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
       assert(0);
   }
   Reg exprReg;
-  if (isFloatType && !exprNode->reg.isFloat) {
+  // TODO: implicit type conversion: float -> int ? check another mirror function also
+  if (isFloatType && !exprNode->reg.isFloat) {      // int expr -> float var
     exprReg = RegGet(true, true, NUL_OFFSET);
     RegFree(exprReg);
     fprintf(outputFile, "fcvt.s.w f%d, x%d\n",
             exprReg.registerNumber, exprNode->reg.registerNumber);
-  } else {
+  } 
+  else if (!isFloatType && exprNode->reg.isFloat) { // float expr -> int var
+    exprReg = RegGet(false, true, NUL_OFFSET);
+    RegFree(exprReg);
+    fprintf(outputFile, "fcvt.w.s x%d, f%d\n",
+            exprReg.registerNumber, exprNode->reg.registerNumber);
+  }
+  else {
     exprReg = exprNode->reg;
   }
   if (variableNode->reg.isCallerSaved) {
@@ -2417,8 +2484,137 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   }
   fprintf(outputFile, "## Codegen: Normal Function Call Stmt ##\n");
   RegClear();
+  
+  // TODO: passing parameters here
+  const int ptrSize = 8, intSize = 8, floatSize = 4;
+  int sp_offset = 0;
+  int memSize = 0;
+  for (AST_NODE *paramNode = functionId->rightSibling->child;
+       paramNode; paramNode = paramNode->rightSibling) {
+    CodegenExprRelated(paramNode);
+    switch (paramNode->dataType) {
+      case INT_TYPE:
+        memSize = intSize;
+        break;
+      case FLOAT_TYPE:
+        memSize = floatSize;
+        break;
+      case INT_PTR_TYPE:
+      case FLOAT_PTR_TYPE:
+        memSize = ptrSize;
+        break;
+      default:
+        // this should not happen
+        assert(0);
+    }
+    sp_offset -= memSize; 
+  }
+  fprintf(outputFile, "addi sp, sp, %d\n", sp_offset);
+  sp_offset = 0; // for spilled argument offset calculation
+  int localCurrentIntFunctionArgumentRegister = 0;
+  int localCurrentFloatFunctionArgumentRegister = 0;
+  SymbolTableEntry *entry = functionId->semantic_value.identifierSemanticValue.symbolTableEntry;
+  Parameter *paramList = entry->attribute->attr.functionSignature->parameterList;
+  Parameter *paramEntry = paramList;
+  for (AST_NODE *paramNode = functionId->rightSibling->child;
+       paramNode; 
+       paramNode = paramNode->rightSibling,
+       paramEntry = paramEntry->next) {
+    Reg paramReg = RegRestore(paramNode->reg, paramNode->offset);
+    int currentRegNumber;
+    switch (paramEntry->type->kind) {
+      case SCALAR_TYPE_DESCRIPTOR: {
+        switch (paramEntry->type->properties.dataType) {
+          case INT_TYPE: {
+            currentRegNumber = intFunctionArgumentRegisters[localCurrentIntFunctionArgumentRegister];
+            if (!paramReg.isFloat) {
+              if (currentRegNumber == NUL_REG) {
+                fprintf(outputFile, "sd x%d, %d(sp)\n", paramReg.registerNumber, sp_offset);
+              }
+              else {
+                fprintf(outputFile, "mv x%d x%d\n", currentRegNumber, paramReg.registerNumber);
+                localCurrentIntFunctionArgumentRegister++;
+              }
+            }
+            else {
+              if (currentRegNumber == NUL_REG) {
+                // float -> int, and then sd int
+                int tmpOffset = TmpOffsetGet(false);
+                Reg tmpReg = RegGet(false, true, tmpOffset);
+                RegFree(tmpReg);
+                fprintf(outputFile, "fcvt.w.s x%d f%d\n", tmpReg.registerNumber, paramReg.registerNumber);
+                fprintf(outputFile, "sd x%d, %d(sp)\n", tmpReg.registerNumber, sp_offset);
+              }
+              else {
+                fprintf(outputFile, "fcvt.w.s x%d f%d\n", currentRegNumber, paramReg.registerNumber);
+                localCurrentIntFunctionArgumentRegister++;
+              }
+            }
+            sp_offset += intSize;
+            break;
+          }
+          case FLOAT_TYPE: {
+            currentRegNumber = floatFunctionArgumentRegisters[localCurrentFloatFunctionArgumentRegister];
+            if (!paramReg.isFloat) {
+              if (currentRegNumber == NUL_REG) {
+                // int -> float, and then fsw float
+                int tmpOffset = TmpOffsetGet(true);
+                Reg tmpReg = RegGet(true, true, tmpOffset);
+                RegFree(tmpReg);
+                fprintf(outputFile, "fcvt.s.w f%d x%d\n", tmpReg.registerNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fsw f%d, %d(sp)\n", tmpReg.registerNumber, sp_offset);
+              }
+              else {
+                fprintf(outputFile, "fcvt.s.w f%d x%d\n", currentRegNumber, paramReg.registerNumber);
+                localCurrentFloatFunctionArgumentRegister++;
+              }
+            }
+            else {
+              if (currentRegNumber == NUL_REG) {
+                fprintf(outputFile, "fsw f%d, %d(sp)\n", paramReg.registerNumber, sp_offset);
+              }
+              else {
+                fprintf(outputFile, "fmv.s f%d f%d\n", currentRegNumber, paramReg.registerNumber);
+                localCurrentFloatFunctionArgumentRegister++;
+              }
+            }
+            sp_offset += floatSize;
+            break;
+          }
+          default:
+            // this should not happen
+            assert(0);
+        }
+        break;
+      }
+      case ARRAY_TYPE_DESCRIPTOR: {
+        switch (paramEntry->type->properties.arrayProperties.elementType) {
+          case INT_TYPE:
+          case FLOAT_TYPE:
+            currentRegNumber = intFunctionArgumentRegisters[localCurrentIntFunctionArgumentRegister];
+            // TODO: I assumed address must be an integer
+            if (currentRegNumber == NUL_REG) {
+              fprintf(outputFile, "sd x%d, %d(sp)\n", paramReg.registerNumber, sp_offset);
+            }
+            else {
+              fprintf(outputFile, "mv x%d x%d\n", currentRegNumber, paramReg.registerNumber);
+              localCurrentIntFunctionArgumentRegister++;
+            }
+            sp_offset += ptrSize;
+            break;
+          default:
+            // this should not happen
+            assert(0);
+        }
+        break;
+      }
+      default:
+        // this should not happen
+        assert(0);
+    }
+  }
+
   fprintf(outputFile, "call _start_%s\n", functionName);
-  SymbolTableEntry *entry = functionCallStmt->child->semantic_value.identifierSemanticValue.symbolTableEntry;
   DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
   bool isFloatType = false;
   if (returnType != VOID_TYPE) {
@@ -2586,23 +2782,8 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
 void CodegenReturnStmt(AST_NODE *returnStmt) {
   assert(returnStmt->semantic_value.stmtSemanticValue.kind == RETURN_STMT);
   fprintf(outputFile, "## Codegen: Return Stmt ##\n");
-  // TODO: implicit type conversion ?
-  // TODO: do implicit type conversion (climbing!!)
+  // TODO: implicit type conversion ? done !
   AST_NODE *returnValueNode = returnStmt->child;
-  if (returnValueNode->nodeType != NUL_NODE) {
-    CodegenExprRelated(returnValueNode);
-    if (!returnValueNode->reg.isFloat) {
-      fprintf(outputFile, "mv a0, x%d\n", returnValueNode->reg.registerNumber);
-    }
-    else {
-      fprintf(outputFile, "fmv.s fa0, f%d\n", returnValueNode->reg.registerNumber);
-    }
-    if (returnValueNode->reg.isCallerSaved) {
-      RegFree(returnValueNode->reg);
-      TmpOffsetFree(returnValueNode->reg.isFloat,
-                    returnValueNode->offset);
-    }
-  }
   AST_NODE *currentNode, *functionId;
   for (currentNode = returnStmt;
        currentNode->nodeType != DECLARATION_NODE
@@ -2610,6 +2791,44 @@ void CodegenReturnStmt(AST_NODE *returnStmt) {
        currentNode = currentNode->parent);
   functionId = currentNode->child->rightSibling;
   char *functionName = functionId->semantic_value.identifierSemanticValue.identifierName;
+  // SymbolTableEntry *functionEntry = functionId->semantic_value.identifierSemanticValue.symbolTableEntry;
+  // TODO: TA didn't put symbolTableEntry into function id node !
+  SymbolTableEntry *functionEntry = retrieveSymbol(functionName);
+  FunctionSignature *funcSign = functionEntry->attribute->attr.functionSignature;
+  if (returnValueNode->nodeType != NUL_NODE) {
+    CodegenExprRelated(returnValueNode);
+    if (!returnValueNode->reg.isFloat) {
+      switch (funcSign->returnType) {
+        case INT_TYPE:
+          fprintf(outputFile, "mv a0, x%d\n", returnValueNode->reg.registerNumber);
+          break;
+        case FLOAT_TYPE:  // TODO: int -> float
+          fprintf(outputFile, "fcvt.s.w fa0, x%d\n", returnValueNode->reg.registerNumber);
+          break;
+        default:
+          // this should not happen
+          assert(0);
+      }
+    }
+    else {
+      switch (funcSign->returnType) {
+        case INT_TYPE:
+          fprintf(outputFile, "fcvt.w.s a0, f%d\n", returnValueNode->reg.registerNumber);
+          break;
+        case FLOAT_TYPE:
+          fprintf(outputFile, "fmv.s fa0, f%d\n", returnValueNode->reg.registerNumber);
+          break;
+        default:
+          // this should not happen
+          assert(0);
+      }
+    }
+    if (returnValueNode->reg.isCallerSaved) {
+      RegFree(returnValueNode->reg);
+      TmpOffsetFree(returnValueNode->reg.isFloat,
+                    returnValueNode->offset);
+    }
+  }
   CodegenJumpLabelStr("_FUNCTION_END_", functionName);
 }
 
