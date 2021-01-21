@@ -1,4 +1,7 @@
 .text
+## Codegen: Global Variable Declaration ##
+.data
+_GLOBAL_i: .word 0
 .text
 _start_MAIN:
 sd ra, 0(sp)
@@ -34,40 +37,56 @@ lw ra, 0(ra)
 sub sp, sp, ra
 ## Codegen: Function Declaration ##
 ## Codegen: Block ##
-## Codegen: Local Variable Declaration ##
-## Codegen: Variable Declaration - Local Variable Initialization ##
+## Codegen: Assign Stmt ##
 .data
-_CONSTANT_0: .float 1213214.1
+_CONSTANT_0: .word 0
 .align 2
 .text
 la x5, _CONSTANT_0
-flw f0, 0(x5)
-fmv.s f8, f0
+lw x5, 0(x5)
+la x6, _GLOBAL_i
+sw x5, 0(x6)
 ## Codegen: While Stmt ##
 _WHILE_LABEL_0:
-fclass.s x6, f8
-andi x6, x6, 24
-beqz x6, _SKIP_0
+la x7, _GLOBAL_i
+lw x7, 0(x7)
+.data
+_CONSTANT_1: .word 10
+.align 2
+.text
+la x28, _CONSTANT_1
+lw x28, 0(x28)
+slt x29, x7, x28
+bnez x29, _SKIP_0
 la ra, _WHILE_EXIT_0
 jr ra
 _SKIP_0:
 ## Codegen: Block ##
 ## Codegen: write() call Stmt ##
+la x30, _GLOBAL_i
+lw x30, 0(x30)
+mv a0, x30
+call _write_int
+## Codegen: write() call Stmt ##
 .data
-_CONSTANT_1: .string "Hello world!\n"
+_CONSTANT_2: .string "\n"
 .align 4
 .text
-la x7, _CONSTANT_1
-mv a0, x7
+la x31, _CONSTANT_2
+mv a0, x31
 call _write_str
 ## Codegen: Assign Stmt ##
+la x10, _GLOBAL_i
+lw x10, 0(x10)
 .data
-_CONSTANT_2: .float 0
+_CONSTANT_3: .word 1
 .align 2
 .text
-la x28, _CONSTANT_2
-flw f1, 0(x28)
-fmv.s f8, f1
+la x11, _CONSTANT_3
+lw x11, 0(x11)
+addw x12, x10, x11
+la x13, _GLOBAL_i
+sw x12, 0(x13)
 la ra, _WHILE_LABEL_0
 jr ra
 _WHILE_EXIT_0:

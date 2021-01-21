@@ -803,25 +803,43 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
       fprintf(outputFile, "add x%d, x0, x0\n", vpReg.registerNumber);
       ArrayProperties *arrayProperties =
         &entry->attribute->attr.typeDescriptor->properties.arrayProperties;
-      int dimension = 1;
-      for (AST_NODE *dimNode = varRef->child; dimNode;
-           dimNode = dimNode->rightSibling) {
-        CodegenExprRelated(dimNode); // TODO: ExprRelated ?
-        vpReg = RegRestore(vpReg, vpOffset);
-        fprintf(outputFile, "add x%d, x%d, x%d\n",
-                vpReg.registerNumber, vpReg.registerNumber,
-                dimNode->reg.registerNumber);
-        if (dimension != arrayProperties->dimension) {
+      AST_NODE *dimNode = varRef->child;
+      for (int i = 0; i < arrayProperties->dimension; ++i) {
+        if (dimNode) {
+          // if there is an index expression for this dimension, then add the
+          // expression result to variable part; otherwise, no add is performed
+          // (which is equivalent to adding 0)
+          CodegenExprRelated(dimNode);
+          vpReg = RegRestore(vpReg, vpOffset);
+          fprintf(outputFile, "add x%d, x%d, x%d\n",
+                  vpReg.registerNumber, vpReg.registerNumber,
+                  dimNode->reg.registerNumber);
+          if (dimNode->reg.isCallerSaved) {
+            TmpOffsetFree(dimNode->reg.isFloat, dimNode->offset);
+            RegFree(dimNode->reg);
+          }
+        }
+        if (i < arrayProperties->dimension - 1) {
+          // if this is not the last dimension, then the variable part
+          // should be multiplied by the next array dimension size
+          Reg sizeReg;
+          if (dimNode) {
+            // if we calculated the index expression before, we can reuse the
+            // register, and increment to the next index expression
+            sizeReg = dimNode->reg;
+            dimNode = dimNode->rightSibling;
+          } else {
+            // otherwise, get a new integer caller saved register
+            sizeReg = RegGet(false, true, NUL_OFFSET);
+            RegFree(sizeReg);
+            vpReg = RegRestore(vpReg, vpOffset);
+          }
           fprintf(outputFile, "li x%d, %d\n",
-              dimNode->reg.registerNumber,
-              arrayProperties->sizeInEachDimension[dimension++]);
+              sizeReg.registerNumber,
+              arrayProperties->sizeInEachDimension[i + 1]);
           fprintf(outputFile, "mul x%d, x%d, x%d\n",
               vpReg.registerNumber, vpReg.registerNumber,
-              dimNode->reg.registerNumber);
-        }
-        if (dimNode->reg.isCallerSaved) {
-          TmpOffsetFree(dimNode->reg.isFloat, dimNode->offset);
-          RegFree(dimNode->reg);
+              sizeReg.registerNumber);
         }
       }
       fprintf(outputFile, "slli x%d, x%d, 2\n",
