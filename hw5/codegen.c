@@ -1772,10 +1772,8 @@ void CodegenFunctionParameterList(AST_NODE *paramListNode) {
         ArrayProperties variableAP = variableTD->properties.arrayProperties;
         switch (variableAP.elementType) {
           case INT_TYPE:
-            isIntType = true;
-            break;
           case FLOAT_TYPE:
-            isIntType = false;
+            isIntType = true;
             break;
           default:
             // this should not happen
@@ -2539,8 +2537,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
             else {
               if (currentRegNumber == NUL_REG) {
                 // float -> int, and then sd int
-                int tmpOffset = TmpOffsetGet(false);
-                Reg tmpReg = RegGet(false, true, tmpOffset);
+                Reg tmpReg = RegGet(false, true, NUL_OFFSET);
                 RegFree(tmpReg);
                 fprintf(outputFile, "fcvt.w.s x%d f%d\n", tmpReg.registerNumber, paramReg.registerNumber);
                 fprintf(outputFile, "sd x%d, %d(sp)\n", tmpReg.registerNumber, sp_offset);
@@ -2558,8 +2555,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
             if (!paramReg.isFloat) {
               if (currentRegNumber == NUL_REG) {
                 // int -> float, and then fsw float
-                int tmpOffset = TmpOffsetGet(true);
-                Reg tmpReg = RegGet(true, true, tmpOffset);
+                Reg tmpReg = RegGet(true, true, NUL_OFFSET);
                 RegFree(tmpReg);
                 fprintf(outputFile, "fcvt.s.w f%d x%d\n", tmpReg.registerNumber, paramReg.registerNumber);
                 fprintf(outputFile, "fsw f%d, %d(sp)\n", tmpReg.registerNumber, sp_offset);
