@@ -265,10 +265,12 @@ int floatCalleeSavedRegisterOffsets[RISCV_MAX_REG_NUM];
 // integer function argument registers
 int intFunctionArgumentRegisters[] =
   { 10, 11, 12, 13, 14, 15, 16, 17, NUL_REG };
+int intFunctionArgumentRegisterOffsets[RISCV_MAX_REG_NUM];
 int currentIntFunctionArgumentRegister;
 // float function argument registers
 int floatFunctionArgumentRegisters[] =
   { 10, 11, 12, 13, 14, 15, 16, 17, NUL_REG };
+int floatFunctionArgumentRegisterOffsets[RISCV_MAX_REG_NUM];
 int currentFloatFunctionArgumentRegister;
 
 void RegInit() {
@@ -331,19 +333,16 @@ void RegReset() {
 
   // integer function argument registers
   currentIntFunctionArgumentRegister = 0;
-  for (int i = 0; intFunctionArgumentRegisters[i] != NUL_REG; ++i)
-    ListPush(freeIntCallerSavedRegisters, intFunctionArgumentRegisters[i]);
 
   // float function argument registers
   currentFloatFunctionArgumentRegister = 0;
-  for (int i = 0; floatFunctionArgumentRegisters[i] != NUL_REG; ++i)
-    ListPush(freeFloatCallerSavedRegisters, floatFunctionArgumentRegisters[i]);
 }
 
 /* TODO: remember to call this function every time a function call is
  *       encountered */
 void RegClear() {
   // int caller saved registers
+  fprintf(outputFile, "## saving int caller saved register ##\n");
   for (int registerNumber = ListFront(usedIntCallerSavedRegisters);
        registerNumber != NUL_IDX;
        registerNumber = ListNext(usedIntCallerSavedRegisters, registerNumber)) {
@@ -355,6 +354,7 @@ void RegClear() {
   }
 
   // float caller saved registers
+  fprintf(outputFile, "## saving float caller saved register ##\n");
   for (int registerNumber = ListFront(usedFloatCallerSavedRegisters);
        registerNumber != NUL_IDX;
        registerNumber = ListNext(usedFloatCallerSavedRegisters,
@@ -366,6 +366,30 @@ void RegClear() {
       floatCallerSavedRegisterOffsets[registerNumber] = NUL_OFFSET;
     }
   }
+
+  // int function argument registers
+  fprintf(outputFile, "## saving int function argument register ##\n");
+  for (int i = 0; i < currentIntFunctionArgumentRegister; ++i) {
+    int registerNumber = intFunctionArgumentRegisters[i];
+    int offset = intFunctionArgumentRegisterOffsets[registerNumber];
+    if (offset != NUL_OFFSET) {
+      fprintf(outputFile, "sd x%d, %d(fp)\n", registerNumber, offset);
+      intFunctionArgumentRegisterOffsets[registerNumber] = NUL_OFFSET;
+    }
+  }
+
+  // float function argument registers
+  fprintf(outputFile, "## saving float function argument register ##\n");
+  for (int i = 0; i < currentFloatFunctionArgumentRegister; ++i) {
+    int registerNumber = floatFunctionArgumentRegisters[i];
+    int offset = floatFunctionArgumentRegisterOffsets[registerNumber];
+    if (offset != NUL_OFFSET) {
+      fprintf(outputFile, "fsw f%d, %d(fp)\n", registerNumber, offset);
+      floatFunctionArgumentRegisterOffsets[registerNumber] = NUL_OFFSET;
+    }
+  }
+
+  fprintf(outputFile, "## end of RegClear ##\n");
 }
 
 int RegGetImpl(bool isFloat, bool isCallerSaved, int *registerOffsets,
@@ -437,9 +461,7 @@ void RegFreeImpl(int registerNumber, int *registerOffsets,
 }
 
 void RegFree(Reg reg) {
-  // DEBUG
-  //if (reg.registerNumber == NUL_REG || IS_ARG_REG(reg.registerNumber))
-  if (reg.registerNumber == NUL_REG)
+  if (reg.registerNumber == NUL_REG || IS_ARG_REG(reg.registerNumber))
     return;
   if (reg.isFloat) {
     if (reg.isCallerSaved) {
@@ -471,9 +493,15 @@ int RegRestoreImpl(int oldRegisterNumber, bool isFloat, bool isCallerSaved,
   if (registerOffsets[oldRegisterNumber] == offset)
     return oldRegisterNumber;
 
-  int newRegisterNumber = RegGetImpl(isFloat, isCallerSaved, registerOffsets,
-                                     freeRegisters, usedRegisters,
-                                     offset);
+  int newRegisterNumber;
+  if (IS_ARG_REG(oldRegisterNumber)) {
+    newRegisterNumber = oldRegisterNumber;
+    registerOffsets[newRegisterNumber] = offset;
+  } else {
+    newRegisterNumber = RegGetImpl(isFloat, isCallerSaved, registerOffsets,
+                                   freeRegisters, usedRegisters,
+                                   offset);
+  }
 
   if (isFloat)
     fprintf(outputFile, "flw f%d, %d(fp)\n", newRegisterNumber, offset);
@@ -487,7 +515,12 @@ int RegRestoreImpl(int oldRegisterNumber, bool isFloat, bool isCallerSaved,
 Reg RegRestore(Reg oldReg, int offset) {
   Reg newReg = oldReg;
   if (oldReg.isFloat) {
-    if (oldReg.isCallerSaved) {
+    if (IS_ARG_REG(oldReg.registerNumber)) {
+      // float function argument register
+      newReg.registerNumber = RegRestoreImpl(
+          oldReg.registerNumber, true, true,
+          floatFunctionArgumentRegisterOffsets, NULL, NULL, offset);
+    } else if (oldReg.isCallerSaved) {
       // float caller saved register
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, true, true,
@@ -502,7 +535,12 @@ Reg RegRestore(Reg oldReg, int offset) {
           usedFloatCalleeSavedRegisters, offset);
     }
   } else {
-    if (oldReg.isCallerSaved) {
+    if (IS_ARG_REG(oldReg.registerNumber)) {
+      // int function argument register
+      newReg.registerNumber = RegRestoreImpl(
+          oldReg.registerNumber, false, true,
+          intFunctionArgumentRegisterOffsets, NULL, NULL, offset);
+    } if (oldReg.isCallerSaved) {
       // int caller saved register
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, false, true,
@@ -523,9 +561,7 @@ Reg RegRestore(Reg oldReg, int offset) {
 
 Reg RegGetParamImpl(bool isFloat, int *functionArgumentRegisters,
                     int *currentFunctionArgumentRegister,
-                    int *registerOffsets, int offset,
-                    List *freeCallerSavedRegisters,
-                    List *usedCallerSavedRegisters) {
+                    int *registerOffsets, int offset) {
   if (functionArgumentRegisters[*currentFunctionArgumentRegister] == NUL_REG) {
     Reg reg = {
       .registerNumber = NUL_REG
@@ -539,8 +575,6 @@ Reg RegGetParamImpl(bool isFloat, int *functionArgumentRegisters,
       functionArgumentRegisters[(*currentFunctionArgumentRegister)++]
   };
   registerOffsets[reg.registerNumber] = offset;
-  ListDelete(freeCallerSavedRegisters, reg.registerNumber);
-  ListPush(usedCallerSavedRegisters, reg.registerNumber);
   return reg;
 }
 
@@ -548,15 +582,11 @@ Reg RegGetParam(bool isFloat, int offset) {
   if (isFloat)
     return RegGetParamImpl(true, floatFunctionArgumentRegisters,
                            &currentFloatFunctionArgumentRegister,
-                           floatCallerSavedRegisterOffsets, offset,
-                           freeFloatCallerSavedRegisters,
-                           usedFloatCallerSavedRegisters);
+                           floatFunctionArgumentRegisterOffsets, offset);
   else
     return RegGetParamImpl(false, intFunctionArgumentRegisters,
                            &currentIntFunctionArgumentRegister,
-                           intCallerSavedRegisterOffsets, offset,
-                           freeIntCallerSavedRegisters,
-                           usedIntCallerSavedRegisters);
+                           intFunctionArgumentRegisterOffsets, offset);
 }
 
 /* ========== register manager ========== */
@@ -792,13 +822,9 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
           // variable is a local variable or parameter, and has been assigned
           // to a register, then we restore the register
 
-          // DEBUG
-          //printf("Restoring %d\n", entry->reg.registerNumber);
-
+          fprintf(outputFile, "## Restoring %d ##\n", entry->reg.registerNumber);
           entry->reg = RegRestore(entry->reg, entry->offset);
-
-          // DEBUG
-          //printf("Restored to %d\n", entry->reg.registerNumber);
+          fprintf(outputFile, "## Restored to %d ##\n", entry->reg.registerNumber);
         }
         varRef->reg = entry->reg;
         varRef->offset = entry->offset;
@@ -2504,6 +2530,18 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   for (AST_NODE *paramNode = functionId->rightSibling->child;
        paramNode; paramNode = paramNode->rightSibling) {
     CodegenExprRelated(paramNode);
+    if (IS_ARG_REG(paramNode->reg.registerNumber)) {
+      int tmpOffset = TmpOffsetGet(paramNode->reg.isFloat);
+      Reg reg = RegGet(paramNode->reg.isFloat, true, tmpOffset);
+      if (reg.isFloat)
+        fprintf(outputFile, "fmv.s f%d, f%d\n",
+                reg.registerNumber, paramNode->reg.registerNumber);
+      else
+        fprintf(outputFile, "mv x%d, x%d\n",
+                reg.registerNumber, paramNode->reg.registerNumber);
+      paramNode->offset = tmpOffset;
+      paramNode->reg = reg;
+    }
     switch (paramNode->dataType) {
       case INT_TYPE:
         memSize = intSize;
@@ -2623,6 +2661,8 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
         // this should not happen
         assert(0);
     }
+    if (paramNode->reg.isCallerSaved)
+      RegFree(paramNode->reg);
   }
 
 
