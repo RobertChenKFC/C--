@@ -437,7 +437,9 @@ void RegFreeImpl(int registerNumber, int *registerOffsets,
 }
 
 void RegFree(Reg reg) {
-  if (reg.registerNumber == NUL_REG || IS_ARG_REG(reg.registerNumber))
+  // DEBUG
+  //if (reg.registerNumber == NUL_REG || IS_ARG_REG(reg.registerNumber))
+  if (reg.registerNumber == NUL_REG)
     return;
   if (reg.isFloat) {
     if (reg.isCallerSaved) {

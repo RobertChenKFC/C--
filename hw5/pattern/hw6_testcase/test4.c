@@ -4,12 +4,6 @@ int a[10];
 void quicksort(int Left,int Right){
   int pivot, i, j, tmp;
 
-  /* DEBUG */
-  write(Left);
-  write(" ");
-  write(Right);
-  write("\n");
-
   pivot = Left;
   i = Left;
   j = Right;
@@ -23,6 +17,13 @@ void quicksort(int Left,int Right){
     while(a[j]>a[pivot]&&j>=Left){
       j=j-1;
     }
+
+    /* DEBUG */
+    write(i);
+    write(" ");
+    write(j);
+    write("\n");
+
     if(i<j){
       tmp=a[i];
       a[i]=a[j];
@@ -36,13 +37,11 @@ void quicksort(int Left,int Right){
   quicksort(j+1,Right);
 
   /* DEBUG */
-  /*
   for(i=0;i<10;i=i+1){
     write(a[i]);
     write(" ");
   }
   write("\n");
-  */
 }
 
 int MAIN(){
