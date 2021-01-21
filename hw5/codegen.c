@@ -2530,7 +2530,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
                 fprintf(outputFile, "sd x%d, %d(sp)\n", paramReg.registerNumber, sp_offset);
               }
               else {
-                fprintf(outputFile, "mv x%d x%d\n", currentRegNumber, paramReg.registerNumber);
+                fprintf(outputFile, "mv x%d, x%d\n", currentRegNumber, paramReg.registerNumber);
                 localCurrentIntFunctionArgumentRegister++;
               }
             }
@@ -2539,11 +2539,11 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
                 // float -> int, and then sd int
                 Reg tmpReg = RegGet(false, true, NUL_OFFSET);
                 RegFree(tmpReg);
-                fprintf(outputFile, "fcvt.w.s x%d f%d\n", tmpReg.registerNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fcvt.w.s x%d, f%d\n", tmpReg.registerNumber, paramReg.registerNumber);
                 fprintf(outputFile, "sd x%d, %d(sp)\n", tmpReg.registerNumber, sp_offset);
               }
               else {
-                fprintf(outputFile, "fcvt.w.s x%d f%d\n", currentRegNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fcvt.w.s x%d, f%d\n", currentRegNumber, paramReg.registerNumber);
                 localCurrentIntFunctionArgumentRegister++;
               }
             }
@@ -2557,11 +2557,11 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
                 // int -> float, and then fsw float
                 Reg tmpReg = RegGet(true, true, NUL_OFFSET);
                 RegFree(tmpReg);
-                fprintf(outputFile, "fcvt.s.w f%d x%d\n", tmpReg.registerNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fcvt.s.w f%d, x%d\n", tmpReg.registerNumber, paramReg.registerNumber);
                 fprintf(outputFile, "fsw f%d, %d(sp)\n", tmpReg.registerNumber, sp_offset);
               }
               else {
-                fprintf(outputFile, "fcvt.s.w f%d x%d\n", currentRegNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fcvt.s.w f%d, x%d\n", currentRegNumber, paramReg.registerNumber);
                 localCurrentFloatFunctionArgumentRegister++;
               }
             }
@@ -2570,7 +2570,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
                 fprintf(outputFile, "fsw f%d, %d(sp)\n", paramReg.registerNumber, sp_offset);
               }
               else {
-                fprintf(outputFile, "fmv.s f%d f%d\n", currentRegNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fmv.s f%d, f%d\n", currentRegNumber, paramReg.registerNumber);
                 localCurrentFloatFunctionArgumentRegister++;
               }
             }
@@ -2593,7 +2593,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
               fprintf(outputFile, "sd x%d, %d(sp)\n", paramReg.registerNumber, sp_offset);
             }
             else {
-              fprintf(outputFile, "mv x%d x%d\n", currentRegNumber, paramReg.registerNumber);
+              fprintf(outputFile, "mv x%d, x%d\n", currentRegNumber, paramReg.registerNumber);
               localCurrentIntFunctionArgumentRegister++;
             }
             sp_offset += ptrSize;
