@@ -261,6 +261,7 @@ int floatCalleeSavedRegisters[] =
   { 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, NUL_REG };
 List *freeFloatCalleeSavedRegisters, *usedFloatCalleeSavedRegisters;
 int floatCalleeSavedRegisterOffsets[RISCV_MAX_REG_NUM];
+#define IS_ARG_REG(reg) ((reg) >= 10 && (reg) <= 17)
 // integer function argument registers
 int intFunctionArgumentRegisters[] =
   { 10, 11, 12, 13, 14, 15, 16, 17, NUL_REG };
@@ -428,33 +429,34 @@ Reg RegGet(bool isFloat, bool isCallerSaved, int offset) {
   return newRegister;
 }
 
-void RegFreeImpl(int registerNumber,
+void RegFreeImpl(int registerNumber, int *registerOffsets,
                  List *freeRegisters, List *usedRegisters) {
+  registerOffsets[registerNumber] = NUL_OFFSET;
   ListDelete(usedRegisters, registerNumber);
   ListPush(freeRegisters, registerNumber);
 }
 
 void RegFree(Reg reg) {
-  if (reg.registerNumber == NUL_REG)
+  if (reg.registerNumber == NUL_REG || IS_ARG_REG(reg.registerNumber))
     return;
   if (reg.isFloat) {
     if (reg.isCallerSaved) {
       // float caller saved registers
-      RegFreeImpl(reg.registerNumber,
+      RegFreeImpl(reg.registerNumber, floatCallerSavedRegisterOffsets,
                   freeFloatCallerSavedRegisters, usedFloatCallerSavedRegisters);
     } else {
       // float callee saved registers
-      RegFreeImpl(reg.registerNumber,
+      RegFreeImpl(reg.registerNumber, floatCalleeSavedRegisterOffsets,
                   freeFloatCalleeSavedRegisters, usedFloatCalleeSavedRegisters);
     }
   } else {
     if (reg.isCallerSaved) {
       // int caller saved registers
-      RegFreeImpl(reg.registerNumber,
+      RegFreeImpl(reg.registerNumber, intCallerSavedRegisterOffsets,
                   freeIntCallerSavedRegisters, usedIntCallerSavedRegisters);
     } else {
       // int callee saved registers
-      RegFreeImpl(reg.registerNumber,
+      RegFreeImpl(reg.registerNumber, intCalleeSavedRegisterOffsets,
                   freeIntCalleeSavedRegisters, usedIntCalleeSavedRegisters);
     }
   }
@@ -787,7 +789,14 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
         } else {
           // variable is a local variable or parameter, and has been assigned
           // to a register, then we restore the register
+
+          // DEBUG
+          //printf("Restoring %d\n", entry->reg.registerNumber);
+
           entry->reg = RegRestore(entry->reg, entry->offset);
+
+          // DEBUG
+          //printf("Restored to %d\n", entry->reg.registerNumber);
         }
         varRef->reg = entry->reg;
         varRef->offset = entry->offset;
@@ -1815,7 +1824,7 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       SymbolTableEntry *singleVariableEntry = singleVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
       TypeDescriptor *singleVariableTD = singleVariableEntry->attribute->attr.typeDescriptor;
       char *singleVariableName = singleVariable->semantic_value.identifierSemanticValue.identifierName;
-      const int intSize = 8, floatSize = 4;
+      const int intSize = 4, floatSize = 4;
       int intValue = 0;
       float floatValue = 0;
       bool initValueIsIntType = true;
@@ -1946,7 +1955,7 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       SymbolTableEntry *singleVariableEntry = singleVariable->semantic_value.identifierSemanticValue.symbolTableEntry;
       // modify new arSize
       TypeDescriptor *singleVariableTD = singleVariableEntry->attribute->attr.typeDescriptor;
-      int intSize = 8, floatSize = 4;
+      int intSize = 4, floatSize = 4;
       int memSize = 0;
       bool isIntType = false;
       switch (singleVariableTD->kind) {
@@ -2257,6 +2266,7 @@ void CodegenForStmt(AST_NODE *forStmt) {
       }
     }
   }
+
   fprintf(outputFile, "_FOR_BODY_%d:\n", labelNo);
   AST_NODE *forCondNode = forInitNode->rightSibling;
   if (forCondNode->nodeType != NUL_NODE) {
@@ -2290,7 +2300,11 @@ void CodegenForStmt(AST_NODE *forStmt) {
       }
     }
   }
+
   AST_NODE *forIncNode = forCondNode->rightSibling;
+  AST_NODE *stmtNode = forIncNode->rightSibling;
+  CodegenStmtNode(stmtNode);
+
   if (forIncNode->nodeType != NUL_NODE) {
     for (AST_NODE *exprNode = forIncNode->child;
          exprNode;
@@ -2302,8 +2316,6 @@ void CodegenForStmt(AST_NODE *forStmt) {
       }
     }
   }
-  AST_NODE *stmtNode = forIncNode->rightSibling;
-  CodegenStmtNode(stmtNode);
   CodegenJumpLabelNo("_FOR_BODY_", labelNo);
   fprintf(outputFile, "_FOR_EXIT_%d:\n", labelNo);
 }
@@ -2481,8 +2493,8 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
     return;
   }
   fprintf(outputFile, "## Codegen: Normal Function Call Stmt ##\n");
+
   RegClear();
-  
   // TODO: passing parameters here
   const int ptrSize = 8, intSize = 8, floatSize = 4;
   int sp_offset = 0;
@@ -2507,7 +2519,8 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
     }
     sp_offset -= memSize; 
   }
-  fprintf(outputFile, "addi sp, sp, %d\n", sp_offset);
+  fprintf(outputFile, "li ra, %d\n", -sp_offset);
+  fprintf(outputFile, "add sp, sp, ra\n");
   sp_offset = 0; // for spilled argument offset calculation
   int localCurrentIntFunctionArgumentRegister = 0;
   int localCurrentFloatFunctionArgumentRegister = 0;
@@ -2610,6 +2623,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
     }
   }
 
+
   fprintf(outputFile, "call _start_%s\n", functionName);
   DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
   bool isFloatType = false;
@@ -2632,6 +2646,8 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
         break;
     }
   }
+  fprintf(outputFile, "li ra, -%d\n", sp_offset);
+  fprintf(outputFile, "add sp, sp, ra\n");
 }
 
 void CodegenReadFunction(AST_NODE *readFunctionCall) {
