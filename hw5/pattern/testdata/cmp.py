@@ -30,7 +30,7 @@ def main():
 
         cmd = (
             'cd ../.. && \\\n' +
-            f'./parser pattern/hw6_testcase/{arg} && \\' +
+            f'./parser pattern/testdata/{arg} && \\' +
             '''
 cd run_and_main && \\
 riscv64-unknown-linux-gnu-gcc -O0 -static main.S''')
@@ -44,7 +44,7 @@ riscv64-unknown-linux-gnu-gcc -O0 -static main.S''')
         cmd = (
             '''cd ../../run_and_main && \\
 qemu-riscv64 a.out > output.txt && \\\n''' +
-            f'diff output.txt ../pattern/hw6_testcase/{filename}.output > ../pattern/hw6_testcase/{filename}.diff'
+            f'diff output.txt ../pattern/testdata/{filename}.output > ../pattern/testdata/{filename}.diff'
         )
         ret = os.system(cmd)
         if ret != 0:

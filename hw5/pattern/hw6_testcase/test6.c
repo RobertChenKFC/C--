@@ -2,11 +2,10 @@
 int a[10];
 
 void heapify(int N,int idx){
-  int Largest, Left, Right;
+  int Largest, Left, Right, tmp;
   Largest=idx;
   Left=2*idx+1;
   Right=2*idx+2;
-  int tmp;
   
   if((Left<N)&&(a[Left]>a[Largest])){
     Largest=Left;

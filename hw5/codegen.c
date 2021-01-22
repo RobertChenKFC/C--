@@ -211,7 +211,9 @@ void TmpOffsetReset() {
 int TmpOffsetGetImpl(Vector *freeTmpOffsets, int size) {
   if (VectorSize(freeTmpOffsets) == 0) {
     arSize += size;
-    VectorPushback(freeTmpOffsets, -arSize);
+    // DEBUG
+    //VectorPushback(freeTmpOffsets, -arSize);
+    VectorPushback(freeTmpOffsets, -arSize - 136);
   }
   return VectorPopback(freeTmpOffsets);
 }
@@ -246,6 +248,7 @@ void TmpOffsetFree(bool isFloat, int tmpOffset) {
 #define RISCV_MAX_REG_NUM  32
 #define NUL_OFFSET         8  // fp+8 is used to store return address, thus
                               // should not be a valid register spilling address
+#define IMM_IN_RANGE(imm)  (-2048 <= (imm) && (imm) <= 2047)
 // integer caller saved registers
 int intCallerSavedRegisters[] =
   { 5, 6, 7, 28, 29, 30, 31, NUL_REG };
@@ -353,7 +356,13 @@ void RegClear() {
        registerNumber = ListNext(usedIntCallerSavedRegisters, registerNumber)) {
     int offset = intCallerSavedRegisterOffsets[registerNumber];
     if (offset != NUL_OFFSET) {
-      fprintf(outputFile, "sd x%d, %d(fp)\n", registerNumber, offset);
+      if (IMM_IN_RANGE(offset)) {
+        fprintf(outputFile, "sd x%d, %d(fp)\n", registerNumber, offset);
+      } else {
+        fprintf(outputFile, "li ra, %d\n", offset);
+        fprintf(outputFile, "add ra, ra, fp\n");
+        fprintf(outputFile, "sd x%d, 0(ra)\n", registerNumber);
+      }
       intCallerSavedRegisterOffsets[registerNumber] = NUL_OFFSET;
     }
   }
@@ -366,8 +375,14 @@ void RegClear() {
                                  registerNumber)) {
     int offset = floatCallerSavedRegisterOffsets[registerNumber];
     if (offset != NUL_OFFSET) {
-      fprintf(outputFile, "fsw f%d, %d(fp)\n",
-          registerNumber, floatCallerSavedRegisterOffsets[registerNumber]);
+      if (IMM_IN_RANGE(offset)) {
+        fprintf(outputFile, "fsw f%d, %d(fp)\n",
+            registerNumber, floatCallerSavedRegisterOffsets[registerNumber]);
+      } else {
+        fprintf(outputFile, "li ra, %d\n", offset);
+        fprintf(outputFile, "add ra, ra, fp\n");
+        fprintf(outputFile, "fsw f%d, 0(ra)\n", registerNumber);
+      }
       floatCallerSavedRegisterOffsets[registerNumber] = NUL_OFFSET;
     }
   }
@@ -378,7 +393,13 @@ void RegClear() {
     int registerNumber = intFunctionArgumentRegisters[i];
     int offset = intFunctionArgumentRegisterOffsets[registerNumber];
     if (offset != NUL_OFFSET) {
-      fprintf(outputFile, "sd x%d, %d(fp)\n", registerNumber, offset);
+      if (IMM_IN_RANGE(offset)) {
+        fprintf(outputFile, "sd x%d, %d(fp)\n", registerNumber, offset);
+      } else {
+        fprintf(outputFile, "li ra, %d\n", offset);
+        fprintf(outputFile, "add ra, ra, fp\n");
+        fprintf(outputFile, "sd x%d, 0(ra)\n", registerNumber);
+      }
       intFunctionArgumentRegisterOffsets[registerNumber] = NUL_OFFSET;
     }
   }
@@ -389,7 +410,13 @@ void RegClear() {
     int registerNumber = floatFunctionArgumentRegisters[i];
     int offset = floatFunctionArgumentRegisterOffsets[registerNumber];
     if (offset != NUL_OFFSET) {
-      fprintf(outputFile, "fsw f%d, %d(fp)\n", registerNumber, offset);
+      if (IMM_IN_RANGE(offset)) {
+        fprintf(outputFile, "fsw f%d, %d(fp)\n", registerNumber, offset);
+      } else {
+        fprintf(outputFile, "li ra, %d\n", offset);
+        fprintf(outputFile, "add ra, ra, fp\n");
+        fprintf(outputFile, "fsw f%d, 0(ra)\n", registerNumber);
+      }
       floatFunctionArgumentRegisterOffsets[registerNumber] = NUL_OFFSET;
     }
   }
@@ -407,12 +434,30 @@ int RegGetImpl(bool isFloat, bool isCallerSaved, int *registerOffsets,
       // NUL_OFFSET is set by RegClear, which spills all caller saved registers
       // when a function call is encountered. Therefore, if NUL_OFFSET is
       // encountered, this means that the register has already been saved.
-      if (isFloat)
-        fprintf(outputFile, "fsw f%d, %d(fp)\n", spillRegister, spillOffset);
-      else if (isCallerSaved)
-        fprintf(outputFile, "sd x%d, %d(fp)\n", spillRegister, spillOffset);
-      else
-        fprintf(outputFile, "sw x%d, %d(fp)\n", spillRegister, spillOffset);
+      if (IMM_IN_RANGE(spillOffset)) {
+        if (isFloat)
+          fprintf(outputFile, "fsw f%d, %d(fp)\n", spillRegister, spillOffset);
+        else if (isCallerSaved)
+          fprintf(outputFile, "sd x%d, %d(fp)\n", spillRegister, spillOffset);
+        else
+          fprintf(outputFile, "sw x%d, %d(fp)\n", spillRegister, spillOffset);
+      } else {
+        if (isFloat) {
+          fprintf(outputFile, "li ra, %d\n", spillOffset);
+          fprintf(outputFile, "add ra, ra, fp\n");
+          fprintf(outputFile, "fsw f%d, 0(ra)\n", spillRegister);
+        } else if (isCallerSaved) {
+          fprintf(outputFile, "li x%d, %d\n", spillRegister, spillOffset);
+          fprintf(outputFile, "add x%d, x%d, fp\n",
+                  spillRegister, spillRegister);
+          fprintf(outputFile, "sd x%d, 0(x%d)\n", spillRegister, spillRegister);
+        } else {
+          fprintf(outputFile, "li x%d, %d\n", spillRegister, spillOffset);
+          fprintf(outputFile, "add x%d, x%d, fp\n",
+                  spillRegister, spillRegister);
+          fprintf(outputFile, "sw x%d, 0(x%d)\n", spillRegister, spillRegister);
+        }
+      }
     }
     ListPush(freeRegisters, spillRegister);
   }
@@ -508,12 +553,35 @@ int RegRestoreImpl(int oldRegisterNumber, bool isFloat, bool isCallerSaved,
                                    offset);
   }
 
-  if (isFloat)
-    fprintf(outputFile, "flw f%d, %d(fp)\n", newRegisterNumber, offset);
-  else if (isCallerSaved)
-    fprintf(outputFile, "ld x%d, %d(fp)\n", newRegisterNumber, offset);
-  else
-    fprintf(outputFile, "lw x%d, %d(fp)\n", newRegisterNumber, offset);
+  // DEBUG
+  assert(isCallerSaved);
+
+  if (IMM_IN_RANGE(offset)) {
+    if (isFloat)
+      fprintf(outputFile, "flw f%d, %d(fp)\n", newRegisterNumber, offset);
+    else if (isCallerSaved)
+      fprintf(outputFile, "ld x%d, %d(fp)\n", newRegisterNumber, offset);
+    else
+      fprintf(outputFile, "lw x%d, %d(fp)\n", newRegisterNumber, offset);
+  } else {
+    if (isFloat) {
+      fprintf(outputFile, "li ra, %d\n", offset);
+      fprintf(outputFile, "add ra, ra, fp\n");
+      fprintf(outputFile, "flw f%d, 0(ra)\n", newRegisterNumber);
+    } else if (isCallerSaved) {
+      fprintf(outputFile, "li x%d, %d\n", newRegisterNumber, offset);
+      fprintf(outputFile, "add x%d, x%d, fp\n",
+              newRegisterNumber, newRegisterNumber);
+      fprintf(outputFile, "ld x%d, 0(x%d)\n",
+              newRegisterNumber, newRegisterNumber);
+    } else {
+      fprintf(outputFile, "li x%d, %d\n", newRegisterNumber, offset);
+      fprintf(outputFile, "add x%d, x%d, fp\n",
+              newRegisterNumber, newRegisterNumber);
+      fprintf(outputFile, "lw x%d, 0(x%d)\n",
+              newRegisterNumber, newRegisterNumber);
+    }
+  }
   return newRegisterNumber;
 }
 
@@ -641,9 +709,16 @@ void CodegenFunctionPrologue(AST_NODE *functionNode) {
     semantic_value.identifierSemanticValue.identifierName;
   fprintf(outputFile, ".text\n");
   fprintf(outputFile, "_start_%s:\n", functionName);
+  // DEBUG
+  /*
   fprintf(outputFile, "sd ra, 0(sp)\n");
   fprintf(outputFile, "sd fp, -8(sp)\n");
   fprintf(outputFile, "addi fp, sp, -8\n");
+  fprintf(outputFile, "addi sp, sp, -16\n");
+  */
+  fprintf(outputFile, "sd ra, -8(sp)\n");
+  fprintf(outputFile, "sd fp, -16(sp)\n");
+  fprintf(outputFile, "addi fp, sp, -16\n");
   fprintf(outputFile, "addi sp, sp, -16\n");
 
   fprintf(outputFile, "addi sp, sp, -136\n");
@@ -655,7 +730,6 @@ void CodegenFunctionPrologue(AST_NODE *functionNode) {
     fprintf(outputFile, "fsw f%d, %d(sp)\n",
         floatCalleeSavedRegisters[j], i * 8 + j * 4);
   }
-
   fprintf(outputFile, "la ra, _FRAME_SIZE_%s\n", functionName);
   fprintf(outputFile, "lw ra, 0(ra)\n");
   fprintf(outputFile, "sub sp, sp, ra\n");
@@ -670,6 +744,7 @@ void CodegenFunctionEpilogue(AST_NODE *functionNode) {
   char *functionName = functionNode->child->rightSibling->
     semantic_value.identifierSemanticValue.identifierName;
 
+
   fprintf(outputFile, "_FUNCTION_END_%s:\n", functionName); // TODO: epilogue ?
 
   fprintf(outputFile, "li t0, %d\n", arSize);
@@ -682,10 +757,15 @@ void CodegenFunctionEpilogue(AST_NODE *functionNode) {
     fprintf(outputFile, "flw f%d, %d(sp)\n",
         floatCalleeSavedRegisters[j], i * 8 + j * 4);
   }
+
   fprintf(outputFile, "addi sp, sp, 152\n");
 
+  /*
   fprintf(outputFile, "ld ra, 8(fp)\n");
   fprintf(outputFile, "addi fp, sp, -8\n");
+  fprintf(outputFile, "ld fp, 0(fp)\n");
+  */
+  fprintf(outputFile, "ld ra, 8(fp)\n");
   fprintf(outputFile, "ld fp, 0(fp)\n");
   fprintf(outputFile, "ret\n");
   fprintf(outputFile, ".data\n");
@@ -728,6 +808,7 @@ void CodegenExprRelated(AST_NODE *exprRelated) {
 
 void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
   assert(varRef->nodeType == IDENTIFIER_NODE);
+  fprintf(outputFile, "## Codegen: Variable Ref ##\n");
 
   varRef->isBooleanExpr = false;
 
@@ -2021,7 +2102,8 @@ void CodegenVariableDeclaration(AST_NODE *variableNode) {
       }
       // set symbolTableEntry.offset
       arSize += memSize * (isIntType ? intSize : floatSize);
-      singleVariableEntry->offset = -arSize;
+      // DEBUG
+      singleVariableEntry->offset = -arSize - 136;
       //fprintf(outputFile, "### allocate %d bytes, arSize: %d ###\n", memSize * intSize, arSize);
       
       // TODO: Variable Initialization
@@ -2351,7 +2433,9 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
   AST_NODE *exprNode = variableNode->rightSibling;
   CodegenExprRelated(exprNode);           // should be relop_expr
   CodegenVariableRef(variableNode, true); // should be var_ref (or simply ID, TODO: why?)
+  fprintf(outputFile, "## finish variable ref ##\n");
   exprNode->reg = RegRestore(exprNode->reg, exprNode->offset);
+  fprintf(outputFile, "## finish reg restore ##\n");
   SymbolTableEntry *entry = variableNode->semantic_value.identifierSemanticValue.symbolTableEntry;
   TypeDescriptor *entryTD = entry->attribute->attr.typeDescriptor;
   bool isFloatType = false;
@@ -2407,7 +2491,8 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
   else {
     exprReg = exprNode->reg;
   }
-  if (variableNode->reg.isCallerSaved) {
+  if (variableNode->reg.isCallerSaved &&
+      !IS_ARG_REG(variableNode->reg.registerNumber)) {
     if (!isFloatType) {
       fprintf(outputFile, "sw x%d, 0(x%d)\n", exprReg.registerNumber,
                                               variableNode->reg.registerNumber);
@@ -2557,7 +2642,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   }
 
   fprintf(outputFile, "li ra, %d\n", -sp_offset);
-  fprintf(outputFile, "add sp, sp, ra\n");
+  fprintf(outputFile, "sub sp, sp, ra\n");
   RegClear();
 
   sp_offset = 0; // for spilled argument offset calculation
@@ -2676,19 +2761,28 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
         functionCallStmt->reg = RegGet(false, true, functionCallStmt->offset);
         fprintf(outputFile, "mv x%d, a0\n",
                 functionCallStmt->reg.registerNumber);
+        //functionCallStmt->reg.isFloat = false;
         break;
       case FLOAT_TYPE:
+        // DEBUG
         functionCallStmt->offset = TmpOffsetGet(false);
         functionCallStmt->reg = RegGet(true, true, functionCallStmt->offset);
         fprintf(outputFile, "fmv.s f%d, fa0\n",
                 functionCallStmt->reg.registerNumber);
+        //functionCallStmt->reg.isFloat = true;
         break;
       default:
         // this should not happen
         break;
     }
   }
-  fprintf(outputFile, "li ra, -%d\n", sp_offset);
+  // DEBUG
+  /*
+  functionCallStmt->reg.isCallerSaved = false;
+  functionCallStmt->reg.registerNumber = 10;
+  */
+
+  fprintf(outputFile, "li ra, %d\n", sp_offset);
   fprintf(outputFile, "add sp, sp, ra\n");
 }
 

@@ -1,20 +1,20 @@
-left: 0, right: 9
-left: 0, right: 4
-left: 0, right: 2
-left: 0, right: 1
-left: 0, right: 0
-left: 1, right: 1
-left: 0, mid: 0, right: 1
-FAIL2! Mid = 0, test1 = 0, test2 = 0, test3 = 1, test4 = 1
-FAIL2! Mid = 0, test1 = 2, test2 = 2, test3 = 2, test4 = 2
-FAIL2! Mid = 0, test1 = 4, test2 = 4, test3 = 4, test4 = 4
-2
-10
-3
-8
-1
-9
-4
-7
-6
-5
+visit 0
+visit 1
+visit 3
+visit 7
+visit 15
+visit 16
+visit 8
+visit 17
+visit 18
+visit 4
+visit 9
+visit 19
+visit 10
+visit 2
+visit 5
+visit 11
+visit 12
+visit 6
+visit 13
+visit 14
