@@ -225,8 +225,11 @@ int TmpOffsetGet(bool isFloat) {
 
 void TmpOffsetFreeImpl(Vector *freeTmpOffsets, int tmpOffset) {
   // don't free an offset that corresponds to a parameter offset
-  if (tmpOffset < 0)
+  if (tmpOffset < 0) {
+    for (int i = 0, size = VectorSize(freeTmpOffsets); i < size; ++i)
+      assert(freeTmpOffsets->array[i] != tmpOffset);
     VectorPushback(freeTmpOffsets, tmpOffset);
+  }
 }
 
 void TmpOffsetFree(bool isFloat, int tmpOffset) {
@@ -857,22 +860,12 @@ void CodegenVariableRef(AST_NODE *varRef, bool isLValue) {
             TmpOffsetFree(dimNode->reg.isFloat, dimNode->offset);
             RegFree(dimNode->reg);
           }
+          dimNode = dimNode->rightSibling;
         }
         if (i < arrayProperties->dimension - 1) {
-          // if this is not the last dimension, then the variable part
-          // should be multiplied by the next array dimension size
-          Reg sizeReg;
-          if (dimNode) {
-            // if we calculated the index expression before, we can reuse the
-            // register, and increment to the next index expression
-            sizeReg = dimNode->reg;
-            dimNode = dimNode->rightSibling;
-          } else {
-            // otherwise, get a new integer caller saved register
-            sizeReg = RegGet(false, true, NUL_OFFSET);
-            RegFree(sizeReg);
-            vpReg = RegRestore(vpReg, vpOffset);
-          }
+          Reg sizeReg = RegGet(false, true, NUL_OFFSET);
+          RegFree(sizeReg);
+          vpReg = RegRestore(vpReg, vpOffset);
           fprintf(outputFile, "li x%d, %d\n",
               sizeReg.registerNumber,
               arrayProperties->sizeInEachDimension[i + 1]);
@@ -2335,6 +2328,7 @@ void CodegenForStmt(AST_NODE *forStmt) {
   AST_NODE *stmtNode = forIncNode->rightSibling;
   CodegenStmtNode(stmtNode);
 
+  fprintf(outputFile, "## For increment ##\n");
   if (forIncNode->nodeType != NUL_NODE) {
     for (AST_NODE *exprNode = forIncNode->child;
          exprNode;
@@ -2666,9 +2660,9 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
         // this should not happen
         assert(0);
     }
-    if (paramNode->reg.isCallerSaved) {
-      RegFree(paramNode->reg);
-      TmpOffsetFree(paramNode->reg.isFloat, paramNode->offset);
+    if (paramReg.isCallerSaved) {
+      RegFree(paramReg);
+      TmpOffsetFree(paramReg.isFloat, paramNode->offset);
     }
   }
 

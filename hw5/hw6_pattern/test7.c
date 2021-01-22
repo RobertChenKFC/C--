@@ -19,13 +19,41 @@ void print()
 int MAIN()
 {
   int i,j;
+  /* DEBUG */
+  int x;
   write("Enter matrix 1 of dim 4 x 4 : \n");
 
   for (i = 0; i < dim; i = i +1)
     {
       for (j = 0; j < dim; j = j +1)
 	{
-	  a[i][j] = read();
+    /* DEBUG */
+    write("BEFORE: i = ");
+    write(i);
+    write(", j = ");
+    write(j);
+    write("\n");
+
+    /* DEBUG */
+	  /*a[i][j] = read();*/
+    x = read();
+
+    /* DEBUG */
+    write("THEN: i = ");
+    write(i);
+    write(", j = ");
+    write(j);
+    write("\n");
+
+    /* DEBUG */
+    a[i][j] = x;
+
+    /* DEBUG */
+    write("AFTER: i = ");
+    write(i);
+    write(", j = ");
+    write(j);
+    write("\n");
 	}
     }
 /*  print();*/

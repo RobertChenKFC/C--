@@ -5,6 +5,16 @@ int c[10];
 
 void merge(int Left,int Mid,int Right){
   int i,j,k, Len1, Len2;
+
+  /* DEBUG */
+  write("left: ");
+  write(Left);
+  write(", mid: ");
+  write(Mid);
+  write(", right: ");
+  write(Right);
+  write("\n");
+
   Len1=Mid-Left+1;
   Len2=Right-(Mid+1)+1;
   for(i=0;i<Len1;i=i+1){
@@ -42,12 +52,80 @@ void merge(int Left,int Mid,int Right){
 
 void mergesort(int Left,int Right){
   int Mid;
+  /* DEBUG */
+  int test1, test2, test3, test4;
+
+  /* DEBUG */
+  write("left: ");
+  write(Left);
+  write(", right: ");
+  write(Right);
+  write("\n");
+
   Mid=(Left+Right)/2;
   if(Left>=Right){
     return;
   }
 
+  /* DEBUG */
+  /*
+  write("calling left = ");
+  write(Left);
+  write(", mid = ");
+  write(Mid);
+  write("\n");
+  */
+  test1 = Mid;
+  test2 = Mid;
+  test3 = Mid;
+  test4 = Mid;
+
+  /* DEBUG */
+  if (Mid != test1 || Mid != test2 || Mid != test3 || Mid != test4) {
+    write("FAIL1! Mid = ");
+    write(Mid);
+    write(", test1 = ");
+    write(test1);
+    write(", test2 = ");
+    write(test2);
+    write(", test3 = ");
+    write(test3);
+    write(", test4 = ");
+    write(test4);
+    write("\n");
+    return;
+  }
+
   mergesort(Left,Mid);
+
+  /* DEBUG */
+  if (Mid != test1 || Mid != test2 || Mid != test3 || Mid != test4) {
+    write("FAIL2! Mid = ");
+    write(Mid);
+    write(", test1 = ");
+    write(test1);
+    write(", test2 = ");
+    write(test2);
+    write(", test3 = ");
+    write(test3);
+    write(", test4 = ");
+    write(test4);
+    write("\n");
+    return;
+  }
+
+  /* DEBUG */
+  /*
+  if (Mid + 1 == 65) {
+    write("SPECIAL: ");
+  }
+  write("calling mid+1 = ");
+  write(Mid+1);
+  write(", right = ");
+  write(Right);
+  write("\n");
+  */
+
   mergesort(Mid+1,Right);
   merge(Left,Mid,Right);
 }
