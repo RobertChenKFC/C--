@@ -1,13 +1,7 @@
 .text
 ## Codegen: Global Variable Declaration ##
 .data
-_GLOBAL_a: .space 16
-## Codegen: Global Variable Declaration ##
-.data
-_GLOBAL_visited: .space 16
-## Codegen: Global Variable Declaration ##
-.data
-_GLOBAL_ans: .space 16
+_GLOBAL_a: .space 80
 ## Codegen: Function Declaration ##
 ## Codegen: Parameter List Declaration ##
 .text
@@ -45,13 +39,12 @@ lw ra, 0(ra)
 sub sp, sp, ra
 ## Codegen: Function Body Declaration ##
 ## Codegen: Block ##
-## Codegen: Local Variable Declaration ##
 ## Codegen: If Stmt ##
 ## Codegen: Variable Ref ##
 ## Restoring 10 ##
 ## Restored to 10 ##
 .data
-_CONSTANT_0: .word 4
+_CONSTANT_0: .word 20
 .align 2
 .text
 la x5, _CONSTANT_0
@@ -63,201 +56,132 @@ la ra, _IF_EXIT_0
 jr ra
 _SKIP_0:
 ## Codegen: Block ##
-## Codegen: For Stmt ##
-_FOR_LABEL_0:
-## Codegen: Assign Stmt ##
-.data
-_CONSTANT_1: .word 0
-.align 2
-.text
-la x7, _CONSTANT_1
-lw x7, 0(x7)
-## Codegen: Variable Ref ##
-## finish variable ref ##
-## finish reg restore ##
-mv x9, x7
-_FOR_BODY_0:
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-.data
-_CONSTANT_2: .word 4
-.align 2
-.text
-la x28, _CONSTANT_2
-lw x28, 0(x28)
-slt x29, x9, x28
-bnez x29, _SKIP_1
-la ra, _FOR_EXIT_0
+## Codegen: Return Stmt ##
+la ra, _FUNCTION_END_dfs
 jr ra
-_SKIP_1:
-## Codegen: Block ##
-## For increment ##
-## Codegen: Assign Stmt ##
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-.data
-_CONSTANT_3: .word 1
-.align 2
-.text
-la x30, _CONSTANT_3
-lw x30, 0(x30)
-addw x31, x9, x30
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-## finish variable ref ##
-## finish reg restore ##
-mv x9, x31
-la ra, _FOR_BODY_0
-jr ra
-_FOR_EXIT_0:
+_IF_EXIT_0:
 ## Codegen: write() call Stmt ##
 .data
-_CONSTANT_4: .string "\n"
+_CONSTANT_1: .string "visit "
 .align 4
 .text
-la x5, _CONSTANT_4
+la x7, _CONSTANT_1
 ## saving int caller saved register ##
 ## saving float caller saved register ##
 ## saving int function argument register ##
 sd x10, 16(fp)
 ## saving float function argument register ##
 ## end of RegClear ##
-mv a0, x5
+mv a0, x7
 addi sp, sp, -8
 call _write_str
 addi sp, sp, 8
-## Codegen: Return Stmt ##
-la ra, _FUNCTION_END_dfs
-jr ra
-_IF_EXIT_0:
-## Codegen: For Stmt ##
-_FOR_LABEL_1:
-## Codegen: Assign Stmt ##
-.data
-_CONSTANT_5: .word 0
-.align 2
-.text
-la x6, _CONSTANT_5
-lw x6, 0(x6)
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-## finish variable ref ##
-## finish reg restore ##
-mv x9, x6
-_FOR_BODY_1:
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-.data
-_CONSTANT_6: .word 4
-.align 2
-.text
-la x7, _CONSTANT_6
-lw x7, 0(x7)
-slt x28, x9, x7
-bnez x28, _SKIP_2
-la ra, _FOR_EXIT_1
-jr ra
-_SKIP_2:
-## Codegen: Block ##
-## Codegen: If Stmt ##
-## Codegen: Variable Ref ##
-add x29, x0, x0
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-add x29, x29, x9
-slli x29, x29, 2
-la x30, _GLOBAL_visited
-add x30, x30, x29
-lw x30, 0(x30)
-.data
-_CONSTANT_7: .word 0
-.align 2
-.text
-la x31, _CONSTANT_7
-lw x31, 0(x31)
-xor x5, x30, x31
-seqz x5, x5
-bnez x5, _SKIP_3
-la ra, _IF_EXIT_1
-jr ra
-_SKIP_3:
-## Codegen: Block ##
-## Codegen: Assign Stmt ##
-.data
-_CONSTANT_8: .word 1
-.align 2
-.text
-la x6, _CONSTANT_8
-lw x6, 0(x6)
-## Codegen: Variable Ref ##
-add x7, x0, x0
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-add x7, x7, x9
-slli x7, x7, 2
-la x28, _GLOBAL_visited
-add x28, x28, x7
-## finish variable ref ##
-## finish reg restore ##
-sw x6, 0(x28)
-## Codegen: Assign Stmt ##
-## Codegen: Variable Ref ##
-add x29, x0, x0
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-add x29, x29, x9
-slli x29, x29, 2
-la x30, _GLOBAL_a
-add x30, x30, x29
-lw x30, 0(x30)
-## Codegen: Variable Ref ##
-add x31, x0, x0
+## Codegen: write() call Stmt ##
 ## Codegen: Variable Ref ##
 ## Restoring 10 ##
 ld x10, 16(fp)
 ## Restored to 10 ##
-add x31, x31, x10
-slli x31, x31, 2
-la x5, _GLOBAL_ans
-add x5, x5, x31
-## finish variable ref ##
-## finish reg restore ##
-sw x30, 0(x5)
-_IF_EXIT_1:
-## For increment ##
-## Codegen: Assign Stmt ##
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
+mv x28, x10
+## saving int caller saved register ##
+## saving float caller saved register ##
+## saving int function argument register ##
+sd x10, 16(fp)
+## saving float function argument register ##
+## end of RegClear ##
+mv a0, x28
+addi sp, sp, -8
+call _write_int
+addi sp, sp, 8
+## Codegen: write() call Stmt ##
 .data
-_CONSTANT_9: .word 1
+_CONSTANT_2: .string "\n"
+.align 4
+.text
+la x29, _CONSTANT_2
+## saving int caller saved register ##
+## saving float caller saved register ##
+## saving int function argument register ##
+## saving float function argument register ##
+## end of RegClear ##
+mv a0, x29
+addi sp, sp, -8
+call _write_str
+addi sp, sp, 8
+## Codegen: Normal Function Call Stmt ##
+## Codegen: Variable Ref ##
+## Restoring 10 ##
+ld x10, 16(fp)
+## Restored to 10 ##
+.data
+_CONSTANT_3: .word 2
 .align 2
 .text
-la x7, _CONSTANT_9
-lw x7, 0(x7)
-addw x6, x9, x7
+la x30, _CONSTANT_3
+lw x30, 0(x30)
+mulw x31, x10, x30
+.data
+_CONSTANT_4: .word 1
+.align 2
+.text
+la x5, _CONSTANT_4
+lw x5, 0(x5)
+addw x6, x31, x5
+## move sp ##
+li ra, 8
+sub sp, sp, ra
+## saving int caller saved register ##
+sd x6, -152(fp)
+## saving float caller saved register ##
+## saving int function argument register ##
+sd x10, 16(fp)
+## saving float function argument register ##
+## end of RegClear ##
+ld x7, -152(fp)
+mv x10, x7
+call _start_dfs
+## restore sp ##
+li ra, 8
+add sp, sp, ra
+## Codegen: Normal Function Call Stmt ##
 ## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-## finish variable ref ##
-## finish reg restore ##
-mv x9, x6
-la ra, _FOR_BODY_1
-jr ra
-_FOR_EXIT_1:
+## Restoring 10 ##
+ld x10, 16(fp)
+## Restored to 10 ##
+.data
+_CONSTANT_5: .word 2
+.align 2
+.text
+la x28, _CONSTANT_5
+lw x28, 0(x28)
+mulw x29, x10, x28
+.data
+_CONSTANT_6: .word 2
+.align 2
+.text
+la x30, _CONSTANT_6
+lw x30, 0(x30)
+addw x31, x29, x30
+## move sp ##
+li ra, 8
+sub sp, sp, ra
+## saving int caller saved register ##
+sd x31, -144(fp)
+## saving float caller saved register ##
+## saving int function argument register ##
+sd x10, 16(fp)
+## saving float function argument register ##
+## end of RegClear ##
+ld x5, -144(fp)
+mv x10, x5
+call _start_dfs
+## restore sp ##
+li ra, 8
+add sp, sp, ra
 ## Codegen: Return Stmt ##
 la ra, _FUNCTION_END_dfs
 jr ra
 _FUNCTION_END_dfs:
-li t0, 28
+li t0, 16
 add sp, sp, t0
 ld x9, 0(sp)
 ld x18, 8(sp)
@@ -287,7 +211,7 @@ ld ra, 8(fp)
 ld fp, 0(fp)
 ret
 .data
-_FRAME_SIZE_dfs: .word 28
+_FRAME_SIZE_dfs: .word 16
 .text
 ## Codegen: Function Declaration ##
 ## Codegen: Parameter List Declaration ##
@@ -328,33 +252,33 @@ sub sp, sp, ra
 ## Codegen: Block ##
 ## Codegen: Local Variable Declaration ##
 ## Codegen: For Stmt ##
-_FOR_LABEL_2:
+_FOR_LABEL_0:
 ## Codegen: Assign Stmt ##
 .data
-_CONSTANT_10: .word 0
+_CONSTANT_7: .word 0
 .align 2
 .text
-la x5, _CONSTANT_10
+la x5, _CONSTANT_7
 lw x5, 0(x5)
 ## Codegen: Variable Ref ##
 ## finish variable ref ##
 ## finish reg restore ##
 mv x9, x5
-_FOR_BODY_2:
+_FOR_BODY_0:
 ## Codegen: Variable Ref ##
 ## Restoring 9 ##
 ## Restored to 9 ##
 .data
-_CONSTANT_11: .word 4
+_CONSTANT_8: .word 20
 .align 2
 .text
-la x6, _CONSTANT_11
+la x6, _CONSTANT_8
 lw x6, 0(x6)
 slt x7, x9, x6
-bnez x7, _SKIP_4
-la ra, _FOR_EXIT_2
+bnez x7, _SKIP_1
+la ra, _FOR_EXIT_0
 jr ra
-_SKIP_4:
+_SKIP_1:
 ## Codegen: Block ##
 ## Codegen: Assign Stmt ##
 ## Codegen: Variable Ref ##
@@ -372,78 +296,61 @@ add x29, x29, x28
 ## finish variable ref ##
 ## finish reg restore ##
 sw x9, 0(x29)
-## Codegen: Assign Stmt ##
-.data
-_CONSTANT_12: .word 0
-.align 2
-.text
-la x30, _CONSTANT_12
-lw x30, 0(x30)
-## Codegen: Variable Ref ##
-add x31, x0, x0
-## Codegen: Variable Ref ##
-## Restoring 9 ##
-## Restored to 9 ##
-add x31, x31, x9
-slli x31, x31, 2
-la x5, _GLOBAL_visited
-add x5, x5, x31
-## finish variable ref ##
-## finish reg restore ##
-sw x30, 0(x5)
 ## For increment ##
 ## Codegen: Assign Stmt ##
 ## Codegen: Variable Ref ##
 ## Restoring 9 ##
 ## Restored to 9 ##
 .data
-_CONSTANT_13: .word 1
+_CONSTANT_9: .word 1
 .align 2
 .text
-la x6, _CONSTANT_13
-lw x6, 0(x6)
-addw x7, x9, x6
+la x30, _CONSTANT_9
+lw x30, 0(x30)
+addw x31, x9, x30
 ## Codegen: Variable Ref ##
 ## Restoring 9 ##
 ## Restored to 9 ##
 ## finish variable ref ##
 ## finish reg restore ##
-mv x9, x7
-la ra, _FOR_BODY_2
+mv x9, x31
+la ra, _FOR_BODY_0
 jr ra
-_FOR_EXIT_2:
+_FOR_EXIT_0:
 ## Codegen: Normal Function Call Stmt ##
 .data
-_CONSTANT_14: .word 0
+_CONSTANT_10: .word 0
 .align 2
 .text
-la x28, _CONSTANT_14
-lw x28, 0(x28)
+la x5, _CONSTANT_10
+lw x5, 0(x5)
+## move sp ##
 li ra, 8
 sub sp, sp, ra
 ## saving int caller saved register ##
-sd x28, -164(fp)
+sd x5, -156(fp)
 ## saving float caller saved register ##
 ## saving int function argument register ##
 ## saving float function argument register ##
 ## end of RegClear ##
-ld x29, -164(fp)
-mv x10, x29
+ld x6, -156(fp)
+mv x10, x6
 call _start_dfs
+## restore sp ##
 li ra, 8
 add sp, sp, ra
 ## Codegen: Return Stmt ##
 .data
-_CONSTANT_15: .word 0
+_CONSTANT_11: .word 0
 .align 2
 .text
-la x31, _CONSTANT_15
-lw x31, 0(x31)
-mv a0, x31
+la x7, _CONSTANT_11
+lw x7, 0(x7)
+mv a0, x7
 la ra, _FUNCTION_END_MAIN
 jr ra
 _FUNCTION_END_MAIN:
-li t0, 28
+li t0, 20
 add sp, sp, t0
 ld x9, 0(sp)
 ld x18, 8(sp)
@@ -473,5 +380,5 @@ ld ra, 8(fp)
 ld fp, 0(fp)
 ret
 .data
-_FRAME_SIZE_MAIN: .word 28
+_FRAME_SIZE_MAIN: .word 20
 .text

@@ -2607,6 +2607,9 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   const int ptrSize = 8, intSize = 8, floatSize = 4;
   int sp_offset = 0;
   int memSize = 0;
+  SymbolTableEntry *entry = functionId->semantic_value.identifierSemanticValue.symbolTableEntry;
+  Parameter *paramList = entry->attribute->attr.functionSignature->parameterList;
+  Parameter *paramEntry = paramList;
   for (AST_NODE *paramNode = functionId->rightSibling->child;
        paramNode; paramNode = paramNode->rightSibling) {
     CodegenExprRelated(paramNode);
@@ -2623,24 +2626,40 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
       paramNode->offset = tmpOffset;
       paramNode->reg = reg;
     }
-    switch (paramNode->dataType) {
-      case INT_TYPE:
-        memSize = intSize;
-        break;
-      case FLOAT_TYPE:
-        memSize = floatSize;
-        break;
-      case INT_PTR_TYPE:
-      case FLOAT_PTR_TYPE:
-        memSize = ptrSize;
-        break;
-      default:
-        // this should not happen
-        assert(0);
-    }
+    switch (paramEntry->type->kind) {
+      case SCALAR_TYPE_DESCRIPTOR: {
+        switch (paramEntry->type->properties.dataType) {
+		  case INT_TYPE:
+			memSize = intSize;
+			break;
+		  case FLOAT_TYPE:
+			memSize = floatSize;
+			break;
+		  default:
+			// this should not happen
+			assert(0);
+		}
+		break;
+	  }
+      case ARRAY_TYPE_DESCRIPTOR: {
+        switch (paramEntry->type->properties.arrayProperties.elementType) {
+          case INT_TYPE:
+          case FLOAT_TYPE:
+			memSize = ptrSize;
+		  default:
+			// this should not happen
+			assert(0);
+		}
+		break;
+	  }
+	  default:
+		// this should not happen
+	    assert(0);
+	}
     sp_offset -= memSize;
   }
 
+  fprintf(outputFile, "## move sp ##\n");
   fprintf(outputFile, "li ra, %d\n", -sp_offset);
   fprintf(outputFile, "sub sp, sp, ra\n");
   RegClear();
@@ -2648,9 +2667,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   sp_offset = 0; // for spilled argument offset calculation
   int localCurrentIntFunctionArgumentRegister = 0;
   int localCurrentFloatFunctionArgumentRegister = 0;
-  SymbolTableEntry *entry = functionId->semantic_value.identifierSemanticValue.symbolTableEntry;
-  Parameter *paramList = entry->attribute->attr.functionSignature->parameterList;
-  Parameter *paramEntry = paramList;
+  paramEntry = paramList;
   for (AST_NODE *paramNode = functionId->rightSibling->child;
        paramNode;
        paramNode = paramNode->rightSibling,
@@ -2690,6 +2707,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
           case FLOAT_TYPE: {
             currentRegNumber = floatFunctionArgumentRegisters[localCurrentFloatFunctionArgumentRegister];
             if (!paramReg.isFloat) {
+			  fprintf(outputFile, "## argument passing: int -> float ##\n");
               if (currentRegNumber == NUL_REG) {
                 // int -> float, and then fsw float
                 Reg tmpReg = RegGet(true, true, NUL_OFFSET);
@@ -2761,27 +2779,19 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
         functionCallStmt->reg = RegGet(false, true, functionCallStmt->offset);
         fprintf(outputFile, "mv x%d, a0\n",
                 functionCallStmt->reg.registerNumber);
-        //functionCallStmt->reg.isFloat = false;
         break;
       case FLOAT_TYPE:
-        // DEBUG
         functionCallStmt->offset = TmpOffsetGet(false);
         functionCallStmt->reg = RegGet(true, true, functionCallStmt->offset);
         fprintf(outputFile, "fmv.s f%d, fa0\n",
                 functionCallStmt->reg.registerNumber);
-        //functionCallStmt->reg.isFloat = true;
         break;
       default:
         // this should not happen
         break;
     }
   }
-  // DEBUG
-  /*
-  functionCallStmt->reg.isCallerSaved = false;
-  functionCallStmt->reg.registerNumber = 10;
-  */
-
+  fprintf(outputFile, "## restore sp ##\n");
   fprintf(outputFile, "li ra, %d\n", sp_offset);
   fprintf(outputFile, "add sp, sp, ra\n");
 }
