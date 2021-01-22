@@ -274,11 +274,13 @@ int floatCalleeSavedRegisterOffsets[RISCV_MAX_REG_NUM];
 int intFunctionArgumentRegisters[] =
   { 10, 11, 12, 13, 14, 15, 16, 17, NUL_REG };
 int intFunctionArgumentRegisterOffsets[RISCV_MAX_REG_NUM];
+int savedIntFunctionArgumentRegisterOffsets[RISCV_MAX_REG_NUM];
 int currentIntFunctionArgumentRegister;
 // float function argument registers
 int floatFunctionArgumentRegisters[] =
   { 10, 11, 12, 13, 14, 15, 16, 17, NUL_REG };
 int floatFunctionArgumentRegisterOffsets[RISCV_MAX_REG_NUM];
+int savedFloatFunctionArgumentRegisterOffsets[RISCV_MAX_REG_NUM];
 int currentFloatFunctionArgumentRegister;
 
 void RegInit() {
@@ -401,6 +403,7 @@ void RegClear() {
         fprintf(outputFile, "sd x%d, 0(ra)\n", registerNumber);
       }
       intFunctionArgumentRegisterOffsets[registerNumber] = NUL_OFFSET;
+      savedIntFunctionArgumentRegisterOffsets[registerNumber] = offset;
     }
   }
 
@@ -418,10 +421,45 @@ void RegClear() {
         fprintf(outputFile, "fsw f%d, 0(ra)\n", registerNumber);
       }
       floatFunctionArgumentRegisterOffsets[registerNumber] = NUL_OFFSET;
+      savedFloatFunctionArgumentRegisterOffsets[registerNumber] = offset;
     }
   }
 
   fprintf(outputFile, "## end of RegClear ##\n");
+}
+
+void RegRestoreParam() {
+  // int function argument registers
+  fprintf(outputFile, "## restoring int function argument register ##\n");
+  for (int i = 0; i < currentIntFunctionArgumentRegister; ++i) {
+    int registerNumber = intFunctionArgumentRegisters[i];
+    int offset = savedIntFunctionArgumentRegisterOffsets[registerNumber];
+    assert(offset != NUL_OFFSET);
+    if (IMM_IN_RANGE(offset)) {
+      fprintf(outputFile, "ld x%d, %d(fp)\n", registerNumber, offset);
+    } else {
+      fprintf(outputFile, "li ra, %d\n", offset);
+      fprintf(outputFile, "add ra, ra, fp\n");
+      fprintf(outputFile, "ld x%d, 0(ra)\n", registerNumber);
+    }
+    intFunctionArgumentRegisterOffsets[registerNumber] = offset;
+  }
+
+  // float function argument registers
+  fprintf(outputFile, "## restoring float function argument register ##\n");
+  for (int i = 0; i < currentFloatFunctionArgumentRegister; ++i) {
+    int registerNumber = floatFunctionArgumentRegisters[i];
+    int offset = savedFloatFunctionArgumentRegisterOffsets[registerNumber];
+    assert(offset != NUL_OFFSET);
+    if (IMM_IN_RANGE(offset)) {
+      fprintf(outputFile, "flw f%d, %d(fp)\n", registerNumber, offset);
+    } else {
+      fprintf(outputFile, "li ra, %d\n", offset);
+      fprintf(outputFile, "add ra, ra, fp\n");
+      fprintf(outputFile, "flw f%d, 0(ra)\n", registerNumber);
+    }
+    floatFunctionArgumentRegisterOffsets[registerNumber] = offset;
+  }
 }
 
 int RegGetImpl(bool isFloat, bool isCallerSaved, int *registerOffsets,
@@ -2794,6 +2832,8 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   fprintf(outputFile, "## restore sp ##\n");
   fprintf(outputFile, "li ra, %d\n", sp_offset);
   fprintf(outputFile, "add sp, sp, ra\n");
+
+  RegRestoreParam();
 }
 
 void CodegenReadFunction(AST_NODE *readFunctionCall) {
@@ -2819,6 +2859,7 @@ void CodegenReadFunction(AST_NODE *readFunctionCall) {
     // this should not happen
     assert(0);
   }
+  RegRestoreParam();
 }
 
 void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
@@ -2953,6 +2994,7 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
   fprintf(outputFile, "addi sp, sp, -8\n");
   fprintf(outputFile, "call _write_%s\n", typeStr);
   fprintf(outputFile, "addi sp, sp, 8\n");
+  RegRestoreParam();
 }
 
 void CodegenReturnStmt(AST_NODE *returnStmt) {
