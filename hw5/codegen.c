@@ -2097,7 +2097,7 @@ void CodegenLocalVariableInitAssignStmt(AST_NODE *variableNode) {
   else if (!isFloatType && exprNode->reg.isFloat) { // float expr -> int var
     exprReg = RegGet(false, true, NUL_OFFSET);
     RegFree(exprReg);
-    fprintf(outputFile, "fcvt.w.s x%d, f%d\n",
+    fprintf(outputFile, "fcvt.w.s x%d, f%d, rtz\n",
             exprReg.registerNumber, exprNode->reg.registerNumber);
   }
   else {
@@ -2407,7 +2407,7 @@ void CodegenAssignStmt(AST_NODE *assignStmt) {
   else if (!isFloatType && exprNode->reg.isFloat) { // float expr -> int var
     exprReg = RegGet(false, true, NUL_OFFSET);
     RegFree(exprReg);
-    fprintf(outputFile, "fcvt.w.s x%d, f%d\n",
+    fprintf(outputFile, "fcvt.w.s x%d, f%d, rtz\n",
             exprReg.registerNumber, exprNode->reg.registerNumber);
   }
   else {
@@ -2597,11 +2597,11 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
                 // float -> int, and then sd int
                 Reg tmpReg = RegGet(false, true, NUL_OFFSET);
                 RegFree(tmpReg);
-                fprintf(outputFile, "fcvt.w.s x%d, f%d\n", tmpReg.registerNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fcvt.w.s x%d, f%d, rtz\n", tmpReg.registerNumber, paramReg.registerNumber);
                 fprintf(outputFile, "sd x%d, %d(sp)\n", tmpReg.registerNumber, sp_offset);
               }
               else {
-                fprintf(outputFile, "fcvt.w.s x%d, f%d\n", currentRegNumber, paramReg.registerNumber);
+                fprintf(outputFile, "fcvt.w.s x%d, f%d, rtz\n", currentRegNumber, paramReg.registerNumber);
                 localCurrentIntFunctionArgumentRegister++;
               }
             }
@@ -2891,7 +2891,7 @@ void CodegenReturnStmt(AST_NODE *returnStmt) {
     else {
       switch (funcSign->returnType) {
         case INT_TYPE:
-          fprintf(outputFile, "fcvt.w.s a0, f%d\n", returnValueNode->reg.registerNumber);
+          fprintf(outputFile, "fcvt.w.s a0, f%d, rtz\n", returnValueNode->reg.registerNumber);
           break;
         case FLOAT_TYPE:
           fprintf(outputFile, "fmv.s fa0, f%d\n", returnValueNode->reg.registerNumber);
