@@ -224,7 +224,9 @@ int TmpOffsetGet(bool isFloat) {
 }
 
 void TmpOffsetFreeImpl(Vector *freeTmpOffsets, int tmpOffset) {
-  VectorPushback(freeTmpOffsets, tmpOffset);
+  // don't free an offset that corresponds to a parameter offset
+  if (tmpOffset < 0)
+    VectorPushback(freeTmpOffsets, tmpOffset);
 }
 
 void TmpOffsetFree(bool isFloat, int tmpOffset) {
@@ -540,7 +542,7 @@ Reg RegRestore(Reg oldReg, int offset) {
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, false, true,
           intFunctionArgumentRegisterOffsets, NULL, NULL, offset);
-    } if (oldReg.isCallerSaved) {
+    } else if (oldReg.isCallerSaved) {
       // int caller saved register
       newReg.registerNumber = RegRestoreImpl(
           oldReg.registerNumber, false, true,
@@ -2522,7 +2524,6 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   }
   fprintf(outputFile, "## Codegen: Normal Function Call Stmt ##\n");
 
-  RegClear();
   // TODO: passing parameters here
   const int ptrSize = 8, intSize = 8, floatSize = 4;
   int sp_offset = 0;
@@ -2532,6 +2533,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
     CodegenExprRelated(paramNode);
     if (IS_ARG_REG(paramNode->reg.registerNumber)) {
       int tmpOffset = TmpOffsetGet(paramNode->reg.isFloat);
+      fprintf(outputFile, "## TmpOffset = %d ##\n", tmpOffset);
       Reg reg = RegGet(paramNode->reg.isFloat, true, tmpOffset);
       if (reg.isFloat)
         fprintf(outputFile, "fmv.s f%d, f%d\n",
@@ -2557,10 +2559,13 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
         // this should not happen
         assert(0);
     }
-    sp_offset -= memSize; 
+    sp_offset -= memSize;
   }
+
   fprintf(outputFile, "li ra, %d\n", -sp_offset);
   fprintf(outputFile, "add sp, sp, ra\n");
+  RegClear();
+
   sp_offset = 0; // for spilled argument offset calculation
   int localCurrentIntFunctionArgumentRegister = 0;
   int localCurrentFloatFunctionArgumentRegister = 0;
@@ -2568,7 +2573,7 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
   Parameter *paramList = entry->attribute->attr.functionSignature->parameterList;
   Parameter *paramEntry = paramList;
   for (AST_NODE *paramNode = functionId->rightSibling->child;
-       paramNode; 
+       paramNode;
        paramNode = paramNode->rightSibling,
        paramEntry = paramEntry->next) {
     Reg paramReg = RegRestore(paramNode->reg, paramNode->offset);
@@ -2661,10 +2666,11 @@ void CodegenFunctionCallStmt(AST_NODE *functionCallStmt) {
         // this should not happen
         assert(0);
     }
-    if (paramNode->reg.isCallerSaved)
+    if (paramNode->reg.isCallerSaved) {
       RegFree(paramNode->reg);
+      TmpOffsetFree(paramNode->reg.isFloat, paramNode->offset);
+    }
   }
-
 
   fprintf(outputFile, "call _start_%s\n", functionName);
   DATA_TYPE returnType = entry->attribute->attr.functionSignature->returnType;
@@ -2719,9 +2725,29 @@ void CodegenReadFunction(AST_NODE *readFunctionCall) {
 
 void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
   fprintf(outputFile, "## Codegen: write() call Stmt ##\n");
-  RegClear();
   AST_NODE *onlyParamNode = writeFunctionCall->child->rightSibling->child;
   CodegenExprRelated(onlyParamNode);
+
+  if (IS_ARG_REG(onlyParamNode->reg.registerNumber)) {
+    int tmpOffset = TmpOffsetGet(onlyParamNode->reg.isFloat);
+    Reg reg = RegGet(onlyParamNode->reg.isFloat, true, tmpOffset);
+    if (reg.isFloat)
+      fprintf(outputFile, "fmv.s f%d, f%d\n",
+              reg.registerNumber, onlyParamNode->reg.registerNumber);
+    else
+      fprintf(outputFile, "mv x%d, x%d\n",
+              reg.registerNumber, onlyParamNode->reg.registerNumber);
+    onlyParamNode->offset = tmpOffset;
+    onlyParamNode->reg = reg;
+  }
+  if (onlyParamNode->reg.isCallerSaved) {
+    RegFree(onlyParamNode->reg);
+    TmpOffsetFree(onlyParamNode->reg.isFloat,
+                  onlyParamNode->offset);
+  }
+  RegClear();
+  const char *typeStr;
+
   switch (onlyParamNode->nodeType) {
     case IDENTIFIER_NODE: { // var_ref
       SymbolTableEntry *entry = onlyParamNode->semantic_value.identifierSemanticValue.symbolTableEntry;
@@ -2763,22 +2789,22 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
         fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
       else
         fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-      fprintf(outputFile, "call _write_%s\n", isIntType ? "int" : "float");
+      typeStr = isIntType ? "int" : "float";
       break;
     }
     case CONST_VALUE_NODE: {
       switch (onlyParamNode->semantic_value.const1->const_type) {
         case INTEGERC:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "call _write_int\n");
+          typeStr = "int";
           break;
         case FLOATC:
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "call _write_float\n");
+          typeStr = "float";
           break;
         case STRINGC:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "call _write_str\n");
+          typeStr = "str";
           break;
         default:
           // this should not happen
@@ -2792,11 +2818,11 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       switch (returnType) {
         case INT_TYPE:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "call _write_int\n");
+          typeStr = "int";
           break;
         case FLOAT_TYPE:
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "call _write_float\n");
+          typeStr = "float";
           break;
         case VOID_TYPE:
           assert(0 && "void value not ignored as it ought to be");
@@ -2810,11 +2836,11 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       switch (onlyParamNode->dataType) {
         case INT_TYPE:
           fprintf(outputFile, "mv a0, x%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "call _write_int\n");
+          typeStr = "int";
           break;
         case FLOAT_TYPE:
           fprintf(outputFile, "fmv.s fa0, f%d\n", onlyParamNode->reg.registerNumber);
-          fprintf(outputFile, "call _write_float\n");
+          typeStr = "float";
           break;
         default:
           // this should not happen
@@ -2826,11 +2852,9 @@ void CodegenWriteFunction(AST_NODE *writeFunctionCall) {
       // this should not happen
       assert(0);
   }
-  if (onlyParamNode->reg.isCallerSaved) {
-    RegFree(onlyParamNode->reg);
-    TmpOffsetFree(onlyParamNode->reg.isFloat,
-                  onlyParamNode->offset);
-  }
+  fprintf(outputFile, "addi sp, sp, -8\n");
+  fprintf(outputFile, "call _write_%s\n", typeStr);
+  fprintf(outputFile, "addi sp, sp, 8\n");
 }
 
 void CodegenReturnStmt(AST_NODE *returnStmt) {
